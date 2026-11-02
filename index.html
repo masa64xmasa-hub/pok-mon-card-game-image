@@ -166,6 +166,32 @@ main.wide{max-width:none;padding:0}
 .mt{white-space:pre-wrap;word-break:break-word}
 .frow{display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .dot{width:9px;height:9px;border-radius:50%;background:#aaa;display:inline-block}.dot.on{background:#34c759}
+
+/* ===== 仕上げ（iOS風） ===== */
+:root{--radius:14px}
+body{-webkit-font-smoothing:antialiased;font-size:15px}
+main{padding-top:10px}
+.panel{border:0;border-radius:var(--radius);box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.panel h2{font-size:1.25rem;letter-spacing:.01em}
+.btn{border:0;border-radius:10px;padding:10px 18px;transition:transform .08s,opacity .15s}
+.btn:active:not(:disabled){transform:scale(.97)}
+.btn.sub{background:rgba(47,111,214,.12);color:var(--acc);border:0}
+.btn.sm{padding:6px 12px;border-radius:8px}
+input[type=text],input[type=search],select{border:0;background:rgba(120,120,128,.12);border-radius:10px;padding:9px 12px;color:var(--fg)}
+select{padding-right:8px}
+.yen{background:#fff;border-radius:999px;padding:3px 12px;box-shadow:0 1px 4px rgba(0,0,0,.08);font-size:.82rem;color:var(--fg)!important}
+@media (prefers-color-scheme:dark){.yen{background:#1c1c1e}.panel{box-shadow:none}}
+.seg{display:inline-flex;background:rgba(120,120,128,.14);border-radius:10px;padding:2px;gap:2px;flex-wrap:wrap;max-width:100%}
+.seg button{font:inherit;font-size:.9rem;font-weight:500;border:0;background:transparent;color:var(--fg);padding:7px 14px;border-radius:8px;cursor:pointer}
+.seg button.on{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.18);font-weight:700;color:#111}
+@media (prefers-color-scheme:dark){.seg button.on{background:#636366;color:#fff}}
+.grid .tile{background:var(--card);border-radius:12px;padding:6px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.cimg{border-radius:8px}
+.pkb{font-size:.72rem}
+.decks .panel{padding:14px 16px}
+.badge{font-weight:600}
+dialog{border:0;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.35)}
+.fb{font-size:.7rem}
 </style>
 </head>
 <body>
@@ -254,7 +280,7 @@ var imgObs=("IntersectionObserver" in window)?new IntersectionObserver(function(
 function imgEl(name,full){
   var wrap=document.createElement("div");wrap.className="cimg"+((ART[name]&&ART[name].mirror)?" mirror":"");
   var fb=document.createElement("div");fb.className="fb";fb.textContent=(ART[name]?ART[name].name:name);wrap.appendChild(fb);
-  var im=new Image();im.alt=ART[name]?ART[name].name:name;im.decoding="sync";im.draggable=false;
+  var im=new Image();im.alt="";im.decoding="sync";im.draggable=false;
   wrap.insertBefore(im,fb);
   function apply(){var c=IMGC[name];if(!c||!c.full){im.remove();return}im.onload=function(){fb.hidden=true};im.src=full?c.full:c.thumb;if(im.complete)fb.hidden=true}
   if(IMGC[name]){apply();return wrap}
@@ -276,7 +302,7 @@ function nameOf(key){if(key.indexOf("E:")===0)return "基本"+typeName(key.slice
 // ---------- タブ ----------
 var TABS=["pack","col","shop","deck","battle","friend"];
 function showTab(t){TABS.forEach(function(x){$("t-"+x).hidden=(x!==t)});
-  $("mainEl").classList.toggle("wide",t==="battle");document.querySelectorAll("#nav button").forEach(function(b){b.setAttribute("aria-selected",b.dataset.tab===t?"true":"false")});
+  $("mainEl").classList.remove("wide");document.querySelectorAll("#nav button").forEach(function(b){b.setAttribute("aria-selected",b.dataset.tab===t?"true":"false")});
   if(t==="pack")renderPack();if(t==="col")renderCol();if(t==="shop")renderShop();if(t==="deck")renderDeck();if(t==="battle")renderBattle();if(t==="friend"){frConnect();renderFriends()}}
 document.querySelectorAll("#nav button").forEach(function(b){b.onclick=function(){showTab(b.dataset.tab)}});
 function renderYen(){$("yen").textContent="💴 "+S.yen.toLocaleString()+"円"}
@@ -412,9 +438,9 @@ var RAR_SHORT={C:"C",U:"U",R:"R",RR:"RR",AR:"AR",SR_Pokemon:"SR",SR_Goods:"SR",S
 var packSet="SD100",packMode=0,lastPack=null;
 function renderPack(){
   var el=$("t-pack");el.innerHTML="";
-  var sel=document.createElement("div");sel.className="row";sel.style.marginBottom="12px";
+  var sel=document.createElement("div");sel.className="seg";sel.style.marginBottom="14px";
   ["SD100"].concat(SET_ORDER).forEach(function(k){
-    var b=document.createElement("button");b.className="btn sm"+(k===packSet?"":" sub");b.textContent=k==="SD100"?"スタートデッキ100":SETS[k].name;
+    var b=document.createElement("button");b.className=(k===packSet?"on":"");b.textContent=k==="SD100"?"スタートデッキ100":SETS[k].name;
     b.onclick=function(){packSet=k;renderPack()};sel.appendChild(b)});
   el.appendChild(sel);
   var body=document.createElement("div");el.appendChild(body);
@@ -669,8 +695,9 @@ function shopItems(){
 }
 function renderShop(){
   var el=$("t-shop");el.innerHTML="";
-  var top=document.createElement("div");top.className="row sticky";
-  [["売る",0],["買う",1],["デッキ",2]].forEach(function(m){var b=document.createElement("button");b.className="btn sm"+(shopMode===m[1]?"":" sub");b.textContent=m[0];b.onclick=function(){shopMode=m[1];shopLimit=60;renderShop()};top.appendChild(b)});
+  var top=document.createElement("div");top.className="row";top.style.marginBottom="8px";
+  var segw=document.createElement("div");segw.className="seg";top.appendChild(segw);
+  [["売る",0],["買う",1],["デッキ",2]].forEach(function(m){var b=document.createElement("button");b.className=(shopMode===m[1]?"on":"");b.textContent=m[0];b.onclick=function(){shopMode=m[1];shopLimit=60;renderShop()};segw.appendChild(b)});
   var pt=document.createElement("button");pt.className="btn sm sub";pt.textContent="値段の一覧";pt.onclick=function(){dialog("<h3 style='margin:0 0 8px'>値段の一覧</h3><table style='border-collapse:collapse;width:100%'><tr><th align=left>種類</th><th align=right>買う</th><th align=right>売る</th></tr>"+RAR.map(function(r,i){return "<tr><td>"+r.label+"</td><td align=right>"+(i===0?"C・U 30円／R 50円":r.buy+"円")+"</td><td align=right>"+(r.sellText||r.sell+"円")+"</td></tr>"}).join("")+"</table><p class='muted'>ミラーの値段は、スタートデッキ100のミラーにも使っています。デッキに入っている分は売れません。</p>")};
   top.appendChild(pt);el.appendChild(top);
   var msg=document.createElement("div");msg.id="shopmsg";msg.className="okc";msg.style.minHeight="1.5em";msg.textContent=shopMsg;el.appendChild(msg);
@@ -707,11 +734,11 @@ function drawShopGrid(){
     var own=S.owned[k]||0,sub=document.createElement("div");sub.className="muted";sub.style.fontSize=".72rem";
     var row=document.createElement("div");row.className="row";row.style.gap="4px";
     if(shopMode===0){
-      var free=sellable(k);sub.textContent=r.label+"　"+(r.sellText||r.sell+"円")+"／持: "+own+"（売れる: "+free+"）";
+      var free=sellable(k);sub.innerHTML="<b>"+esc(r.label)+"</b>　"+esc(r.sellText||r.sell+"円")+"<br>持 "+own+"　売れる "+free;
       var b1=document.createElement("button");b1.className="btn sm";b1.textContent="1枚売る";b1.onclick=function(){askSell(k,1)};row.appendChild(b1);
       if(free>1){var b2=document.createElement("button");b2.className="btn sm sub";b2.textContent=free+"枚";b2.onclick=function(){askSell(k,free)};row.appendChild(b2)}
     }else{
-      var pr=buyPriceOf(k);sub.textContent=r.label+"　"+pr+"円／持: "+own;
+      var pr=buyPriceOf(k);sub.innerHTML="<b>"+esc(r.label)+"</b>　"+pr+"円<br>持 "+own;
       var b=document.createElement("button");b.className="btn sm";b.textContent="買う";b.disabled=S.yen<pr;b.onclick=function(){buyOne(k)};row.appendChild(b);
     }
     t.appendChild(sub);t.appendChild(row);g.appendChild(t)});
@@ -927,7 +954,7 @@ function currentDeckList(){
   return {cards:Object.keys(cards).map(function(id){return{cardNumber:+id,count:cards[id]}}),energy:Object.keys(energy).map(function(t){return{type:t,count:energy[t]}}),arts:arts};
 }
 function renderBattle(){
-  var el=$("t-battle");
+  var el=$("t-battle");$("mainEl").classList.toggle("wide",!!B.running);
   if(B.running){renderBattleScreen();return}
   if(B.os){onlineWait(el);return}
   el.innerHTML="<div class='panel'><p class='muted'>対戦エンジンを読み込み中…</p></div>";
