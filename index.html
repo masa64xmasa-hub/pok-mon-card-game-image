@@ -267,7 +267,7 @@ function tileFor(name,count,opt){
   if(opt.flip)t.style.animationDelay=(opt.i*40)+"ms";
   var a=ART[name];
   if(name.indexOf("E:")===0){var ty=name.slice(2);var e=document.createElement("div");e.className="energy";e.style.background=typeColor(ty);e.innerHTML="<i></i>基本"+typeName(ty)+"<br>エネルギー";t.appendChild(e)}
-  else{t.appendChild(imgEl(name));if(a&&a.mirror){var m=document.createElement("span");m.className="mtag";m.textContent="ミラー";t.appendChild(m)}}
+  else{t.appendChild(imgEl(name));}
   if(count!=null&&!opt.ctl){var c=document.createElement("span");c.className="cnt";c.textContent="×"+count;t.appendChild(c)}
   return t;
 }
