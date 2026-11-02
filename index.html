@@ -158,6 +158,16 @@ main.wide{max-width:none;padding:0}
 .bflash{position:fixed;inset:0;background:#fff;z-index:850;pointer-events:none;opacity:0}
 .pkb2{font:inherit;color:#aaa;background:transparent;border:0;cursor:pointer;padding:6px 14px}
 .pkb2.purple{color:#fff;background:#af52de;border-radius:8px;font-weight:700;font-size:.9rem}
+
+/* ===== フレンド・チャット ===== */
+.msgs{max-height:48vh;min-height:140px;overflow:auto;display:flex;flex-direction:column;gap:6px;padding:6px 0}
+.msg{display:flex}.msg.own{justify-content:flex-end}
+.bub{max-width:80%;background:var(--bg);border-radius:12px;padding:6px 10px}
+.msg.own .bub{background:var(--mirbg)}
+.mh{font-size:.7rem;color:var(--mute)}.mh .lnkbtn{font-size:.7rem}
+.mt{white-space:pre-wrap;word-break:break-word}
+.frow{display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.dot{width:9px;height:9px;border-radius:50%;background:#aaa;display:inline-block}.dot.on{background:#34c759}
 </style>
 </head>
 <body>
@@ -170,6 +180,7 @@ main.wide{max-width:none;padding:0}
     <button data-tab="shop" aria-selected="false">ショップ</button>
     <button data-tab="deck" aria-selected="false">デッキ</button>
     <button data-tab="battle" aria-selected="false">対戦</button>
+    <button data-tab="friend" aria-selected="false">フレンド</button>
   </nav>
 </header>
 <main id="mainEl">
@@ -178,6 +189,7 @@ main.wide{max-width:none;padding:0}
   <section id="t-shop" hidden></section>
   <section id="t-deck" hidden></section>
   <section id="t-battle" hidden></section>
+  <section id="t-friend" hidden></section>
 </main>
 <dialog id="dlg"><div id="dlgbody"></div><div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn sub sm" id="dlgclose">閉じる</button></div></dialog>
 
@@ -228,10 +240,10 @@ function tileFor(name,count,opt){
 function nameOf(key){if(key.indexOf("E:")===0)return "基本"+typeName(key.slice(2))+"エネルギー";return ART[key]?ART[key].name:key}
 
 // ---------- タブ ----------
-var TABS=["pack","col","shop","deck","battle"];
+var TABS=["pack","col","shop","deck","battle","friend"];
 function showTab(t){TABS.forEach(function(x){$("t-"+x).hidden=(x!==t)});
   $("mainEl").classList.toggle("wide",t==="battle");document.querySelectorAll("#nav button").forEach(function(b){b.setAttribute("aria-selected",b.dataset.tab===t?"true":"false")});
-  if(t==="pack")renderPack();if(t==="col")renderCol();if(t==="shop")renderShop();if(t==="deck")renderDeck();if(t==="battle")renderBattle();}
+  if(t==="pack")renderPack();if(t==="col")renderCol();if(t==="shop")renderShop();if(t==="deck")renderDeck();if(t==="battle")renderBattle();if(t==="friend"){frConnect();renderFriends()}}
 document.querySelectorAll("#nav button").forEach(function(b){b.onclick=function(){showTab(b.dataset.tab)}});
 function renderYen(){$("yen").textContent="💴 "+S.yen.toLocaleString()+"円"}
 function dialog(html){$("dlgclose").hidden=false;$("dlgbody").innerHTML=html;var d=$("dlg");if(d.showModal)d.showModal();else d.setAttribute("open","")}
@@ -847,13 +859,14 @@ function renderEditor(el,d){
 }
 
 // ---------- 対戦 ----------
-var B={running:false,game:null,pending:null,log:[],cfg:{opp:"fighting",cpu:"strong",seed:1},result:null,reward:null};
+var WEB_DV="web1";
+var B={me:0,os:null,online:null,cancelled:false,waiting:false,oppName:"相手",running:false,game:null,pending:null,log:[],cfg:{opp:"fighting",cpu:"strong",seed:1},result:null,reward:null};
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
 function engineOK(){return typeof PK!=="undefined"&&PK.BattleGame&&PK.catalog&&PK.catalog(29)}
 function engineLoad(cb){
   if(typeof PK==="undefined"||!PK.BattleGame){cb("engine.js が読み込まれていません。engine.js を index.html と同じ場所に置いてください。");return}
   if(PK.catalog&&PK.catalog(29)){cb(null);return}
-  fetch("cards_rt.json").then(function(r){if(!r.ok)throw new Error(r.status);return r.json()}).then(function(j){
+  fetch("cards_rt.json").then(function(r){if(!r.ok)throw new Error(r.status);return r.text()}).then(function(tx){WEB_DV="web1-"+fnv(tx).toString(16)+"-"+tx.length;var j=JSON.parse(tx);
     PK.loadCards(j);var m={};Object.keys(ART).forEach(function(k){if(ART[k].id>0)m[k]=ART[k].id});PK.setArtMap(m);if(PK.resetAICaches)PK.resetAICaches();cb(null)
   }).catch(function(e){cb("cards_rt.json を読めませんでした（"+e.message+"）。cards_rt.json を index.html と同じ場所に置いてください。")});
 }
@@ -873,6 +886,7 @@ function currentDeckList(){
 function renderBattle(){
   var el=$("t-battle");
   if(B.running){renderBattleScreen();return}
+  if(B.os){onlineWait(el);return}
   el.innerHTML="<div class='panel'><p class='muted'>対戦エンジンを読み込み中…</p></div>";
   engineLoad(function(err){
     if(err){el.innerHTML="<div class='panel'><h2 style='margin:0 0 6px'>対戦</h2><p class='warn'>"+esc(err)+"</p></div>";return}
@@ -887,9 +901,20 @@ function renderBattleSetup(el){
   if(probs.length)h+="<p class='warn'>"+probs.map(esc).join("<br>")+"</p>";
   h+="<div class='row' style='margin:8px 0'><label>相手のデッキ <select id='b-opp'><option value='fighting'>闘デッキ（メガルカリオex）</option><option value='darkness'>悪デッキ（メガアブソルex）</option><option value='random'>ランダムなCPUデッキ</option></select></label>";
   h+="<label>CPU <select id='b-cpu'><option value='strong'>強化版</option><option value='simple'>簡単</option></select></label></div>";
-  h+="<button class='btn' id='b-start'"+(probs.length?" disabled":"")+">対戦を始める</button></div>";
+  h+="<button class='btn' id='b-start'"+(probs.length?" disabled":"")+">CPUと対戦を始める</button></div>";
+  var nm=myName(),okOn=!probs.length&&nm;
+  h+="<div class='panel' style='margin-top:12px'><h2 style='margin:0 0 6px'>オンライン対戦</h2>";
+  h+=nm?"<p>あなたの名前: <b>"+esc(nm)+"</b></p>":"<p class='warn'>オンライン対戦には名前が必要です。「フレンド」タブで名前を決めてください。</p>";
+  h+="<p class='muted' style='margin:0 0 8px'>ランダムマッチは同じように探している人と自動で組みます（ごほうびが出ます）。部屋を作る場合は4文字の合言葉を相手に伝えます（ごほうびなし）。いま選んでいるデッキで戦います。サーバーが眠っていると、最初の接続に1分ほどかかります。</p>";
+  h+="<div class='row' style='margin-bottom:8px'><button class='btn' id='o-rand'"+(okOn?"":" disabled")+">対戦相手を探す</button><button class='btn sub' id='o-create'"+(okOn?"":" disabled")+">部屋を作る</button></div>";
+  h+="<div class='row'><input type='text' id='o-code' maxlength='4' placeholder='合言葉（4文字）' style='width:9em;font:700 1.2rem ui-monospace,Menlo,monospace;text-transform:uppercase'><button class='btn sub' id='o-join'"+(okOn?"":" disabled")+">入る</button></div>";
+  h+="<details style='margin-top:10px'><summary class='muted'>サーバーの設定</summary><div class='row' style='margin-top:6px'><input type='text' id='o-srv' style='flex:1' value='"+esc(serverBase())+"'><button class='btn sm sub' id='o-srvset'>保存</button></div></details></div>";
   el.innerHTML=h;$("b-opp").value=B.cfg.opp;$("b-cpu").value=B.cfg.cpu;
   $("b-start").onclick=function(){B.cfg.opp=$("b-opp").value;B.cfg.cpu=$("b-cpu").value;startBattle()};
+  $("o-rand").onclick=function(){onlineStart("random")};$("o-create").onclick=function(){onlineStart("create")};
+  $("o-join").onclick=function(){var c=$("o-code").value.trim().toUpperCase();if(c.length!==4){toast("合言葉は4文字です");return}onlineStart("join",c)};
+  $("o-srvset").onclick=function(){lsSet("pk_server",$("o-srv").value.trim()||DEFAULT_SERVER);toast("保存しました");frDisconnect();FR.status="offline"};
+  if(!window._woke){window._woke=1;wakeServer()}
 }
 function startBattle(){
   var mine=currentDeckList(),opp;
@@ -900,19 +925,23 @@ function startBattle(){
     choose:function(g,p,req){return new Promise(function(res){B.pending={type:"choice",req:req,res:res};draw()})}};
   var slow={chooseAction:async function(g,p,acts){await sleep(450);return cpu.chooseAction(g,p,acts)},choose:async function(g,p,req){await sleep(250);return cpu.choose(g,p,req)}};
   var game=new PK.BattleGame(a,b,[human,slow],null,null);
-  B.game=game;B.log=[];B.running=true;B.result=null;B.reward=null;B.pending=null;B.logOpen=false;
+  B.game=game;B.me=0;B.online=null;B.os=null;B.cancelled=false;B.log=[];B.running=true;B.result=null;B.reward=null;B.pending=null;B.logOpen=false;UI.lastTurn=-1;
   game.onLog=function(t){B.log.push(t);draw()};
   game.run().then(function(r){finishBattle(game,r)},function(e){B.log.push("エラー: "+e.message);B.running=false;B.error=e;draw()});
   draw();
 }
 function finishBattle(game,r){
-  var won=r.win===0,taken=6-game.players[0].prizes.length,lost=6-game.players[1].prizes.length,turns=game.players[0].turnsTaken;
-  var lines=[["対戦したごほうび",30]];if(won)lines.push(["勝利",120]);if(taken>0)lines.push(["サイドを"+taken+"枚とった",taken*25]);
-  if(won){if(turns<=7)lines.push(["スピード勝ち（7ターン以内）",60]);else if(turns<=10)lines.push(["はやい勝ち（10ターン以内）",30]);if(lost===0)lines.push(["1匹もやられずに勝利",50])}
-  var total=0;lines.forEach(function(l){total+=l[1]});
-  S.yen+=total;save();renderYen();
-  B.reward={lines:lines,total:total};B.result={win:won,text:r.draw?"引き分け":won?"あなたの勝ち！（"+game.turnNumber+"ターン）":"あなたの負け…（"+game.turnNumber+"ターン）"};
-  B.running=false;B.pending=null;draw();
+  var me=B.me||0,online=B.online,won=r.win===me&&r.win!=null,taken=6-game.players[me].prizes.length,lost=6-game.players[1-me].prizes.length,turns=game.players[me].turnsTaken;
+  var eligible=!online||online.isRandom,total=0,lines=[];
+  if(eligible&&!B.remoteEnd){
+    lines.push(["対戦したごほうび",30]);if(won)lines.push(["勝利",120]);if(taken>0)lines.push(["サイドを"+taken+"枚とった",taken*25]);
+    if(won){if(turns<=7)lines.push(["スピード勝ち（7ターン以内）",60]);else if(turns<=10)lines.push(["はやい勝ち（10ターン以内）",30]);if(lost===0)lines.push(["1匹もやられずに勝利",50])}
+    lines.forEach(function(l){total+=l[1]});S.yen+=total;save();renderYen();
+  }
+  var who=online?"相手":"CPU";
+  var text=B.remoteEnd?onlineEndText(B.remoteEnd):(r.draw?"引き分け":won?"あなたの勝ち！（"+game.turnNumber+"ターン）":"あなたの負け…（"+game.turnNumber+"ターン）");
+  B.reward=total?{lines:lines,total:total}:null;B.result={win:won,text:text};
+  B.running=false;B.pending=null;B.online=null;B.os=null;B.remoteEnd=null;B.waiting=false;draw();
 }
 var _drawQ=false;
 function draw(){if(_drawQ)return;_drawQ=true;requestAnimationFrame(function(){_drawQ=false;if(!$("t-battle").hidden)renderBattle()})}
@@ -979,7 +1008,7 @@ function zoomDetail(c,extra){
 }
 function cardDetail(c){openOvl(zoomDetail(c))}
 function actBtn(label,cls,fn){var b=document.createElement("button");b.className="mbtn "+(cls||"");b.textContent=label;b.onclick=fn;return b}
-function uniqueBy(acts,g){var seen={},out=[];acts.forEach(function(a){var tx=g.describe(a.a,0);if(seen[tx])return;seen[tx]=1;out.push({i:a.i,tx:tx})});return out}
+function uniqueBy(acts,g){var seen={},out=[];acts.forEach(function(a){var tx=g.describe(a.a,B.me||0);if(seen[tx])return;seen[tx]=1;out.push({i:a.i,tx:tx})});return out}
 function handMenu(i,c){
   var g=B.game,list=[];myActs().forEach(function(a,k){if(a.handIndex===i)list.push({a:a,i:k})});
   var ex=document.createElement("div");ex.className="mlist";
@@ -1047,7 +1076,7 @@ function renderBattleScreen(){
   var mainW=W-sideW,handH=Math.round(H*0.24),bandH=Math.floor((H-handH-26)/2);
   var activeW=Math.floor(Math.max(50,Math.min((bandH-62)*0.716,mainW*0.2)));
   var benchW=Math.floor(Math.max(36,Math.min(activeW*0.9,(mainW-activeW-60)/5-8)));
-  var me=g.players[0],op=g.players[1],myTurn=g.currentPlayer===0;
+  var SEAT=B.me||0,me=g.players[SEAT],op=g.players[1-SEAT],myTurn=g.currentPlayer===SEAT;
   if(g.turnNumber!==UI.lastTurn){UI.lastTurn=g.turnNumber;showBanner("ターン"+g.turnNumber+"　"+(myTurn?"あなたの番":"相手の番"))}
   var acts=myActs(),canAct=acts.length>0;
 
@@ -1071,7 +1100,7 @@ function renderBattleScreen(){
   }
   field.appendChild(band(op,false));
   var strip=document.createElement("div");strip.className="strip";
-  if(g.stadiumCard){var chip=document.createElement("button");chip.className="chip";chip.innerHTML="🏟 "+esc(g.stadiumCard.name)+" <span class='muted'>"+(g.stadiumOwner===0?"（自分）":"（相手）")+"</span> <span class='lnk'>ⓘ 効果を見る</span>";chip.onclick=function(){cardDetail(g.stadiumCard)};strip.appendChild(chip)}
+  if(g.stadiumCard){var chip=document.createElement("button");chip.className="chip";chip.innerHTML="🏟 "+esc(g.stadiumCard.name)+" <span class='muted'>"+(g.stadiumOwner===SEAT?"（自分）":"（相手）")+"</span> <span class='lnk'>ⓘ 効果を見る</span>";chip.onclick=function(){cardDetail(g.stadiumCard)};strip.appendChild(chip)}
   else strip.innerHTML="<span class='muted' style='font-size:.7rem'>スタジアムなし</span>";
   var hint=document.createElement("span");hint.id="bhint";hint.className="dhint";hint.textContent="光っているポケモンの上、または盤面にドロップ";strip.appendChild(hint);
   field.appendChild(strip);
@@ -1093,7 +1122,7 @@ function renderBattleScreen(){
   // サイドバー
   var sb=document.createElement("div");sb.className="side";
   function info(title,s,showHand){return "<div class='info'><b>"+title+"</b><br>手札 "+s.hand.length+"　山札 "+s.deck.length+"<br>サイド "+s.prizes.length+"　トラッシュ "+s.discard.length+"</div>"}
-  sb.innerHTML="<div class='turn'>ターン"+g.turnNumber+"</div><div class='who "+(myTurn?"me":"op")+"'>"+(myTurn?"あなたの番":"相手の番")+"</div>"+info("相手",op)+info("あなた",me);
+  sb.innerHTML="<div class='turn'>ターン"+g.turnNumber+"</div><div class='who "+(myTurn?"me":"op")+"'>"+(myTurn?"あなたの番":"相手の番")+"</div>"+info(B.online?esc(B.oppName):"相手",op)+info(B.online&&myName()?esc(myName()):"あなた",me);
   var endIdx=-1;acts.forEach(function(a,k){if(a.t==="endTurn")endIdx=k});
   var eb=document.createElement("button");eb.className="endbtn";eb.textContent="ターン終了";eb.disabled=endIdx<0;eb.onclick=function(){runAct(endIdx)};sb.appendChild(eb);
   var stIdx=-1;acts.forEach(function(a,k){if(a.t==="useStadium")stIdx=k});
@@ -1105,7 +1134,7 @@ function renderBattleScreen(){
   lr.appendChild(lb);lr.appendChild(qb);sb.appendChild(lr);
   var lg=document.createElement("div");lg.className="slog";lg.textContent=B.log.slice(-6).join("\n");sb.appendChild(lg);
   var sp=document.createElement("div");sp.style.flex="1";sb.appendChild(sp);
-  var ht=document.createElement("div");ht.className="shint";ht.innerHTML=(B.pending&&B.pending.type==="choice")?"選んでください":(canAct?"手札をドラッグして使う<br>ポケモンをタップでワザ・特性":"相手の番です…");sb.appendChild(ht);
+  var ht=document.createElement("div");ht.className="shint";ht.innerHTML=(B.pending&&B.pending.type==="choice")?"選んでください":(canAct?"手札をドラッグして使う<br>ポケモンをタップでワザ・特性":(B.waiting?"相手の操作を待っています…":"相手の番です…"));sb.appendChild(ht);
   root.appendChild(sb);
   el.appendChild(root);
   if(B.pending&&B.pending.type==="choice")renderChoice(B.pending);else if($("dlg").open&&B._choiceOpen){$("dlg").close();B._choiceOpen=false}
@@ -1126,9 +1155,391 @@ function renderChoice(pd){
 }
 function energyTile(c){var e=document.createElement("div");e.className="energy";e.style.background=typeColor(c.energyType);e.innerHTML="<i></i>基本"+typeName(c.energyType)+"<br>エネルギー";return e}
 function forfeit(){
-  dialog("<p>投了しますか？（負けになります）</p><div class='row'><button class='btn sm' id='ffok'>投了する</button></div>");
-  $("ffok").onclick=function(){$("dlg").close();var g=B.game;if(g&&g.result==null){g.result={win:1}}var p=B.pending;B.pending=null;if(p){if(p.type==="action")p.res(p.actions.length-1);else p.res(p.req.allowsNone?null:0)}};
+  dialog("<p>"+(B.online?"オンライン対戦をやめますか？（負けになります）":"投了しますか？（負けになります）")+"</p><div class='row'><button class='btn sm' id='ffok'>投了する</button></div>");
+  $("ffok").onclick=function(){$("dlg").close();var g=B.game;if(g&&g.result==null){g.result={win:1-(B.me||0)}}
+    B.cancelled=true;if(B.online)B.online.leave();
+    var p=B.pending;B.pending=null;if(p){if(p.type==="action")p.res(p.actions.length-1);else p.res(p.req.allowsNone?null:0)}};
 }
+// ===== オンライン（サーバー接続・フレンド・チャット・トレード・オンライン対戦）=====
+var DEFAULT_SERVER="https://pok-mon-card-game-server.onrender.com";
+function lsGet(k,d){try{var v=localStorage.getItem(k);return v==null?d:v}catch(e){return d}}
+function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function serverBase(){var s=(lsGet("pk_server",DEFAULT_SERVER)||"").trim();while(s.slice(-1)==="/")s=s.slice(0,-1);return s}
+function wsBase(){var s=serverBase();if(s.indexOf("https://")===0)return "wss://"+s.slice(8);if(s.indexOf("http://")===0)return "ws://"+s.slice(7);if(s.indexOf("ws")===0)return s;return "wss://"+s}
+function httpBase(){var s=serverBase();if(s.indexOf("wss://")===0)return "https://"+s.slice(6);if(s.indexOf("ws://")===0)return "http://"+s.slice(5);return s.indexOf("http")===0?s:"https://"+s}
+function deviceID(){var d=lsGet("pk_device","");if(!d||d.length<8){var a=new Uint8Array(16);(window.crypto||{getRandomValues:function(x){for(var i=0;i<x.length;i++)x[i]=Math.random()*256}}).getRandomValues(a);d="w"+Array.prototype.map.call(a,function(b){return("0"+b.toString(16)).slice(-2)}).join("");lsSet("pk_device",d)}return d}
+function myName(){return lsGet("pk_name","")}
+function wakeServer(){try{fetch(httpBase()+"/health",{mode:"no-cors"}).catch(function(){})}catch(e){}}
+function claimName(name){
+  return fetch(httpBase()+"/name/claim",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id:deviceID(),name:name})})
+    .then(function(r){return r.json()}).catch(function(){return{ok:false,code:"network",m:"サーバーにつながりませんでした（サーバーが眠っている場合は1分ほど待って、もう一度）"}});
+}
+function fmtCode(c){return c&&c.length===8?c.slice(0,4)+"-"+c.slice(4):c}
+function fnv(str){var h=0x811c9dc5;for(var i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)>>>0}return h>>>0}
+function fmtTime(ts){var d=new Date(ts);return d.getHours()+":"+("0"+d.getMinutes()).slice(-2)}
+
+// ---------- フレンド・チャット ----------
+var FR={ws:null,status:"offline",code:"",friends:[],inc:[],out:[],global:[],dms:{},view:"global",dm:null,draft:"",addDraft:"",need:"",retry:2,want:false,lastRead:{},trade:null,tradeEnd:null,tradeOffer:{},timer:null};
+try{FR.lastRead=JSON.parse(lsGet("pk_lastread","{}"))||{}}catch(e){}
+function frVisible(){return !$("t-friend").hidden}
+function frDraw(){if(frVisible())renderFriends()}
+function frSend(o){if(FR.ws&&FR.ws.readyState===1)FR.ws.send(JSON.stringify(o))}
+function frConnect(){
+  FR.want=true;if(FR.ws)return;
+  if(!myName()){FR.status="needName";return}
+  FR.status="connecting";wakeServer();
+  var ws;try{ws=new WebSocket(wsBase()+"/social")}catch(e){FR.status="offline";return}
+  FR.ws=ws;
+  ws.onopen=function(){frSend({t:"hello",id:deviceID(),name:myName()});FR.timer=setInterval(function(){frSend({t:"ping"})},20000);frDraw()};
+  ws.onmessage=function(ev){var d;try{d=JSON.parse(ev.data)}catch(e){return}frHandle(d)};
+  ws.onclose=function(){clearInterval(FR.timer);if(FR.ws===ws)FR.ws=null;if(FR.status==="online"||FR.status==="connecting")FR.status="offline";frDraw();
+    if(FR.want&&FR.status==="offline"){setTimeout(function(){if(FR.want&&!FR.ws)frConnect()},FR.retry*1000);FR.retry=Math.min(FR.retry*2,30)}};
+  ws.onerror=function(){};
+  frDraw();
+}
+function frDisconnect(){FR.want=false;if(FR.ws){FR.ws.onclose=null;FR.ws.close();FR.ws=null}clearInterval(FR.timer);if(FR.status!=="needName")FR.status="offline"}
+function frApplyState(d){
+  if(d.friends)FR.friends=d.friends.map(function(f){return{code:f.code,name:f.name||"？",online:!!f.online,lastTs:+f.lastTs||0}}).sort(function(a,b){return a.online!==b.online?(a.online?-1:1):(a.name<b.name?-1:1)});
+  FR.inc=d.incoming||[];FR.out=d.outgoing||[];
+  if(FR.dm)frMarkRead(FR.dm);
+}
+function frMarkRead(code){FR.lastRead[code]=Date.now()+86400000*0;var m=0;(FR.dms[code]||[]).forEach(function(x){if(x.ts>m)m=x.ts});var f=FR.friends.filter(function(x){return x.code===code})[0];if(f&&f.lastTs>m)m=f.lastTs;FR.lastRead[code]=m;lsSet("pk_lastread",JSON.stringify(FR.lastRead))}
+function frUnread(f){return f.lastTs>(FR.lastRead[f.code]||0)}
+function frHandle(d){
+  switch(d.t){
+    case"ready":FR.code=d.code;FR.retry=2;FR.status="online";frApplyState(d);FR.global=(d.global||[]);if(FR.dm)frSend({t:"history",with:FR.dm});break;
+    case"state":frApplyState(d);break;
+    case"gchat":if(d.msg&&!FR.global.some(function(m){return m.n===d.msg.n&&m.code===d.msg.code})){FR.global.push(d.msg);if(FR.global.length>200)FR.global.shift()}break;
+    case"dm":{var o=d.with;(FR.dms[o]=FR.dms[o]||[]).push(d.msg);if(d.msg.f!==FR.code){var f=FR.friends.filter(function(x){return x.code===o})[0];if(f)f.lastTs=Math.max(f.lastTs,d.msg.ts)}if(FR.dm===o)frMarkRead(o);break}
+    case"history":FR.dms[d.with]=d.msgs||[];if(FR.dm===d.with)frMarkRead(d.with);break;
+    case"tr_state":{var first=!FR.trade;FR.trade={id:d.id,with:d.with,mine:d.mine||{},theirs:d.theirs||{},myOk:!!d.myOk,theirOk:!!d.theirOk};if(first){FR.tradeEnd=null;FR.tradeOffer=Object.assign({},FR.trade.mine)}break}
+    case"tr_done":frTradeDone(d);break;
+    case"tr_end":FR.trade=null;FR.tradeEnd=d.m||"トレードが終わりました";break;
+    case"notice":case"err":if(d.m)toast(d.m);break;
+    case"noname":frNoName();return;
+  }
+  frDraw();
+}
+var _reclaimed=false;
+function frNoName(){
+  if(FR.ws){FR.ws.onclose=null;FR.ws.close();FR.ws=null}
+  var n=myName();if(!n||_reclaimed){FR.status="needName";frDraw();return}
+  _reclaimed=true;FR.status="connecting";frDraw();
+  claimName(n).then(function(r){if(r.ok)frConnect();else{FR.need=r.m||"名前を登録できませんでした";FR.status=(r.code==="taken"||r.code==="invalid")?"needName":"offline";frDraw()}});
+}
+function frTradeDone(d){
+  FR.trade=null;
+  var key="pk_trade_applied",ap=[];try{ap=JSON.parse(lsGet(key,"[]"))}catch(e){}
+  if(ap.indexOf(d.id)>=0)return;
+  ap.push(d.id);if(ap.length>50)ap.shift();lsSet(key,JSON.stringify(ap));
+  var gave=[],got=[];
+  Object.keys(d.give||{}).forEach(function(a){var n=Math.min(d.give[a],S.owned[a]||0);if(n>0){S.owned[a]-=n;gave.push(nameOf(a)+" ×"+n)}});
+  Object.keys(d.get||{}).forEach(function(a){if(ART[a]&&ART[a].id>0){S.owned[a]=(S.owned[a]||0)+d.get[a];got.push(nameOf(a)+" ×"+d.get[a])}});
+  save();
+  FR.tradeEnd="トレードが成立しました！"+(got.length?"\n\nもらったカード\n"+got.join("\n"):"")+(gave.length?"\n\n渡したカード\n"+gave.join("\n"):"");
+}
+function frNameOf(code){if(code===FR.code)return myName()||"あなた";var f=FR.friends.filter(function(x){return x.code===code})[0];return f?f.name:"？"}
+
+function renderFriends(){
+  var el=$("t-friend"),act=document.activeElement,keep=null;
+  if(act&&act.dataset&&act.dataset.keep)keep={k:act.dataset.keep,s:act.selectionStart};
+  el.innerHTML="";
+  var box=document.createElement("div");box.className="panel";el.appendChild(box);
+  if(!myName()||FR.status==="needName"){frNameForm(box);return}
+  if(FR.status!=="online"){
+    box.innerHTML="<h2 style='margin:0 0 6px'>フレンド・チャット</h2><p class='muted'>"+(FR.status==="connecting"?"サーバーに接続中…（しばらく使っていないと1分ほどかかります）":"サーバーにつながっていません。")+"</p>"+(FR.need?"<p class='warn'>"+esc(FR.need)+"</p>":"");
+    var b=document.createElement("button");b.className="btn";b.textContent="つなぎなおす";b.onclick=function(){FR.retry=2;frConnect();renderFriends()};box.appendChild(b);
+    var c=document.createElement("button");c.className="btn sub";c.style.marginLeft="8px";c.textContent="名前をかえる";c.onclick=function(){FR.status="needName";FR.need="";renderFriends()};box.appendChild(c);
+    var sv=document.createElement("p");sv.className="muted";sv.textContent="サーバー: "+serverBase();box.appendChild(sv);return;
+  }
+  var head=document.createElement("div");head.className="row";head.style.justifyContent="space-between";
+  head.innerHTML="<b>"+esc(myName())+"</b><span class='muted'>フレンドコード "+esc(fmtCode(FR.code))+"</span>";box.appendChild(head);
+  var tabs=document.createElement("div");tabs.className="row";tabs.style.margin="8px 0";
+  var unread=FR.friends.some(frUnread);
+  [["global","全体チャット"],["friends","フレンド"+(unread?" ●":"")],["req","申請"+(FR.inc.length?"（"+FR.inc.length+"）":"")]].forEach(function(t){
+    var b=document.createElement("button");b.className="btn sm"+((FR.view===t[0]&&!FR.dm)?"":" sub");b.textContent=t[1];b.onclick=function(){FR.view=t[0];FR.dm=null;renderFriends()};tabs.appendChild(b)});
+  box.appendChild(tabs);
+  if(FR.dm)frDmView(box);else if(FR.view==="global")frGlobalView(box);else if(FR.view==="friends")frFriendsView(box);else frReqView(box);
+  if(FR.trade||FR.tradeEnd)frTradeView();
+  if(keep){var n=el.querySelector("[data-keep='"+keep.k+"']");if(n){n.focus();try{n.setSelectionRange(keep.s,keep.s)}catch(e){}}}
+  var ml=el.querySelector(".msgs");if(ml)ml.scrollTop=ml.scrollHeight;
+}
+function frNameForm(box){
+  box.innerHTML="<h2 style='margin:0 0 6px'>名前を決める</h2><p class='muted'>チャットとフレンド機能を使うには名前が必要です。ほかの人と重ならないよう、サーバーで確かめます（12文字まで）。決めた名前はオンライン対戦でも使われます。</p>"+(FR.need?"<p class='warn'>⚠️ "+esc(FR.need)+"</p>":"");
+  var r=document.createElement("div");r.className="row";
+  var i=document.createElement("input");i.type="text";i.maxLength=12;i.placeholder="名前";i.value=myName();i.dataset.keep="name";
+  var b=document.createElement("button");b.className="btn";b.textContent="決める";
+  function go(){var n=i.value.trim();if(!n)return;b.disabled=true;b.textContent="確認中…";
+    claimName(n).then(function(res){b.disabled=false;b.textContent="決める";
+      if(res.ok){lsSet("pk_name",res.name);FR.need="";_reclaimed=false;frDisconnect();FR.status="offline";frConnect();renderFriends()}
+      else{FR.need=res.m||"名前を登録できませんでした";renderFriends()}})}
+  b.onclick=go;i.onkeydown=function(e){if(e.key==="Enter")go()};
+  r.appendChild(i);r.appendChild(b);box.appendChild(r);
+  var sv=document.createElement("p");sv.className="muted";sv.style.fontSize=".75rem";sv.textContent="※ iPadのSwift版アプリとは別の端末として扱われるので、同じ名前は使えません。";box.appendChild(sv);
+}
+function msgList(list,mine,onName){
+  var d=document.createElement("div");d.className="msgs";
+  if(!list.length)d.innerHTML="<p class='muted'>まだ発言がありません。最初のひとことをどうぞ</p>";
+  list.forEach(function(m){
+    var code=m.code||m.f,own=code===FR.code,row=document.createElement("div");row.className="msg"+(own?" own":"");
+    var nm=m.name||frNameOf(code),b=document.createElement("div");b.className="bub";
+    var hd=document.createElement("div");hd.className="mh";
+    var nb=document.createElement(onName&&!own?"button":"span");nb.textContent=nm;if(onName&&!own){nb.className="lnkbtn";nb.onclick=function(){onName(code,nm)}}
+    hd.appendChild(nb);hd.appendChild(document.createTextNode("　"+fmtTime(m.ts)));
+    var tx=document.createElement("div");tx.className="mt";tx.textContent=m.text||m.x;
+    b.appendChild(hd);b.appendChild(tx);row.appendChild(b);d.appendChild(row)});
+  return d;
+}
+function inputRow(key,ph,onSend){
+  var r=document.createElement("div");r.className="row";r.style.marginTop="8px";r.style.flexWrap="nowrap";
+  var i=document.createElement("input");i.type="text";i.maxLength=200;i.placeholder=ph;i.style.flex="1";i.dataset.keep=key;i.value=FR.draft;
+  i.oninput=function(){FR.draft=i.value};
+  var b=document.createElement("button");b.className="btn sm";b.textContent="送る";
+  function go(){var t=i.value.trim();if(!t)return;FR.draft="";i.value="";onSend(t)}
+  b.onclick=go;i.onkeydown=function(e){if(e.key==="Enter"&&!e.isComposing)go()};r.appendChild(i);r.appendChild(b);return r;
+}
+function frGlobalView(box){
+  box.appendChild(msgList(FR.global,false,function(code,name){frPerson(code,name)}));
+  box.appendChild(inputRow("g","全体チャットに発言（名前を押すとフレンド申請）",function(t){frSend({t:"gchat",text:t})}));
+}
+function frPerson(code,name){
+  var isF=FR.friends.some(function(f){return f.code===code}),inc=FR.inc.some(function(p){return p.code===code}),out=FR.out.some(function(p){return p.code===code});
+  var h="<h3 style='margin:0 0 6px'>"+esc(name)+"</h3><p class='muted'>フレンドコード "+esc(fmtCode(code))+"</p><div class='row' id='pp'></div>";
+  dialog(h);var r=$("dlgbody").querySelector("#pp");
+  function B1(t,fn,sub){var b=document.createElement("button");b.className="btn sm"+(sub?" sub":"");b.textContent=t;b.onclick=function(){$("dlg").close();fn()};r.appendChild(b)}
+  if(isF)r.innerHTML="<span class='okc'>すでにフレンドです</span>";
+  else if(out)r.innerHTML="<span class='muted'>申請を送っています。承諾されるとフレンドになります</span>";
+  else if(inc)B1("申請を承諾する",function(){frSend({t:"accept",code:code})});
+  else B1("フレンド申請を送る",function(){frSend({t:"req",code:code})});
+  B1("コードをコピー",function(){try{navigator.clipboard.writeText(code);toast("コピーしました")}catch(e){}},true);
+}
+function frFriendsView(box){
+  var s=document.createElement("div");
+  s.innerHTML="<div class='row'><span>あなたのコード: <b style='font-size:1.1rem;letter-spacing:.05em'>"+esc(fmtCode(FR.code))+"</b></span></div>";
+  var cb=document.createElement("button");cb.className="btn sm sub";cb.textContent="コピー";cb.onclick=function(){try{navigator.clipboard.writeText(FR.code);toast("コピーしました")}catch(e){}};s.firstChild.appendChild(cb);
+  var ar=document.createElement("div");ar.className="row";ar.style.margin="8px 0";
+  var i=document.createElement("input");i.type="text";i.placeholder="相手のフレンドコード（8文字）";i.dataset.keep="add";i.value=FR.addDraft;i.oninput=function(){FR.addDraft=i.value};
+  var b=document.createElement("button");b.className="btn sm";b.textContent="申請する";b.onclick=function(){var c=i.value.replace(/[^A-Za-z0-9]/g,"").toUpperCase();if(c.length!==8){toast("フレンドコードは8文字です");return}frSend({t:"req",code:c});FR.addDraft="";i.value=""};
+  ar.appendChild(i);ar.appendChild(b);s.appendChild(ar);box.appendChild(s);
+  var h=document.createElement("h3");h.style.margin="10px 0 4px";h.textContent="フレンド（"+FR.friends.length+"人）";box.appendChild(h);
+  if(!FR.friends.length)box.insertAdjacentHTML("beforeend","<p class='muted'>まだフレンドがいません。全体チャットで名前を押すと、申請を送れます</p>");
+  FR.friends.forEach(function(f){
+    var r=document.createElement("div");r.className="frow";
+    r.innerHTML="<span class='dot "+(f.online?"on":"")+"'></span><b>"+esc(f.name)+"</b>"+(frUnread(f)?" <span class='badge'>新着</span>":"")+"<span style='flex:1'></span>";
+    var c=document.createElement("button");c.className="btn sm";c.textContent="チャット";c.onclick=function(){FR.dm=f.code;frSend({t:"history",with:f.code});frMarkRead(f.code);renderFriends()};
+    var t=document.createElement("button");t.className="btn sm sub";t.textContent="トレード";t.onclick=function(){frSend({t:"tr_start",to:f.code})};
+    var x=document.createElement("button");x.className="btn sm sub";x.textContent="外す";x.onclick=function(){dialog("<p>"+esc(f.name)+"さんをフレンドから外しますか？</p><div class='row'><button class='btn sm' id='rmok'>外す</button></div>");$("rmok").onclick=function(){$("dlg").close();frSend({t:"remove",code:f.code})}};
+    r.appendChild(c);r.appendChild(t);r.appendChild(x);box.appendChild(r)});
+}
+function frReqView(box){
+  var h=document.createElement("h3");h.style.margin="0 0 4px";h.textContent="届いている申請";box.appendChild(h);
+  if(!FR.inc.length)box.insertAdjacentHTML("beforeend","<p class='muted'>届いている申請はありません</p>");
+  FR.inc.forEach(function(p){var r=document.createElement("div");r.className="frow";r.innerHTML="<b>"+esc(p.name)+"</b><span style='flex:1'></span>";
+    var a=document.createElement("button");a.className="btn sm";a.textContent="承諾";a.onclick=function(){frSend({t:"accept",code:p.code})};
+    var d=document.createElement("button");d.className="btn sm sub";d.textContent="断る";d.onclick=function(){frSend({t:"decline",code:p.code})};r.appendChild(a);r.appendChild(d);box.appendChild(r)});
+  var h2=document.createElement("h3");h2.style.margin="12px 0 4px";h2.textContent="送った申請（相手の返事待ち）";box.appendChild(h2);
+  if(!FR.out.length)box.insertAdjacentHTML("beforeend","<p class='muted'>送っている申請はありません</p>");
+  FR.out.forEach(function(p){var r=document.createElement("div");r.className="frow";r.innerHTML="<b>"+esc(p.name)+"</b><span style='flex:1'></span>";
+    var c=document.createElement("button");c.className="btn sm sub";c.textContent="取り消す";c.onclick=function(){frSend({t:"cancel",code:p.code})};r.appendChild(c);box.appendChild(r)});
+}
+function frDmView(box){
+  var f=FR.friends.filter(function(x){return x.code===FR.dm})[0];
+  var top=document.createElement("div");top.className="row";
+  var back=document.createElement("button");back.className="btn sm sub";back.textContent="← もどる";back.onclick=function(){FR.dm=null;renderFriends()};
+  top.appendChild(back);top.insertAdjacentHTML("beforeend","<b>"+esc(f?f.name:"？")+"</b>");box.appendChild(top);
+  box.appendChild(msgList(FR.dms[FR.dm]||[],true,null));
+  if(!f)box.insertAdjacentHTML("beforeend","<p class='muted'>フレンドではなくなったため、送れません</p>");
+  else box.appendChild(inputRow("dm","メッセージ",function(t){frSend({t:"dm",to:FR.dm,text:t})}));
+}
+// ---------- トレード ----------
+function frTradeView(){
+  var T=FR.trade,o=document.createElement("div");o.className="zoom trade";o.style.flexDirection="column";o.style.alignItems="stretch";o.style.width="min(94vw,760px)";
+  if(!T){
+    var m=document.createElement("div");m.className="ztext";m.innerHTML="<b>トレード</b><p style='white-space:pre-wrap'>"+esc(FR.tradeEnd)+"</p>";
+    var b=document.createElement("button");b.className="btn";b.textContent="閉じる";b.onclick=function(){FR.tradeEnd=null;closeOvl();frDraw()};m.appendChild(b);o.appendChild(m);openOvl(o,function(){FR.tradeEnd=null});return;
+  }
+  o.innerHTML="<b>"+esc(frNameOf(T.with))+"さんとトレード</b><p class='muted' style='margin:2px 0'>出すカードを選んで「これでOK」。2人ともOKを押すと成立します（相手が出す内容が変わるとOKは取り消されます）。</p>";
+  function offerGrid(title,off,editable){
+    var s=document.createElement("div");s.innerHTML="<div class='muted' style='margin:6px 0 2px'>"+title+"</div>";
+    var g=document.createElement("div");g.className="grid";g.style.gridTemplateColumns="repeat(auto-fill,minmax(70px,1fr))";
+    var ks=Object.keys(off);if(!ks.length)g.innerHTML="<span class='muted'>まだ何も出していません</span>";
+    ks.forEach(function(k){var t=tileFor(k,off[k],{});if(editable){t.style.cursor="pointer";t.onclick=function(){var n=(FR.tradeOffer[k]||0)-1;if(n>0)FR.tradeOffer[k]=n;else delete FR.tradeOffer[k];frSend({t:"tr_offer",to:T.with,offer:FR.tradeOffer});renderFriends()}}g.appendChild(t)});
+    s.appendChild(g);return s;
+  }
+  o.appendChild(offerGrid("あなたが出す（タップで1枚へらす）"+(T.myOk?"　✅OK済み":""),FR.tradeOffer,true));
+  o.appendChild(offerGrid("相手が出す"+(T.theirOk?"　✅OK済み":""),T.theirs,false));
+  var pick=document.createElement("details");pick.innerHTML="<summary>持っているカードから追加</summary>";
+  var pg=document.createElement("div");pg.className="grid";pg.style.gridTemplateColumns="repeat(auto-fill,minmax(70px,1fr))";pg.style.maxHeight="30vh";pg.style.overflow="auto";
+  pick.ontoggle=function(){if(!pick.open||pg.dataset.f)return;pg.dataset.f=1;
+    sortedKeys(S.owned).forEach(function(k){var have=S.owned[k]||0;if(have<=0||!ART[k]||ART[k].id<=0)return;
+      var t=tileFor(k,have,{});t.style.cursor="pointer";t.onclick=function(){var n=(FR.tradeOffer[k]||0)+1;if(n>have)return;FR.tradeOffer[k]=n;frSend({t:"tr_offer",to:T.with,offer:FR.tradeOffer});renderFriends()};pg.appendChild(t)})};
+  pick.appendChild(pg);o.appendChild(pick);
+  var r=document.createElement("div");r.className="row";r.style.marginTop="8px";
+  var ok=document.createElement("button");ok.className="btn";ok.textContent=T.myOk?"OKを取り消す":"これでOK";ok.onclick=function(){frSend({t:"tr_ok",to:T.with,ok:!T.myOk})};
+  var ca=document.createElement("button");ca.className="btn sub";ca.textContent="トレードをやめる";ca.onclick=function(){frSend({t:"tr_cancel",to:T.with})};
+  r.appendChild(ok);r.appendChild(ca);o.appendChild(r);
+  var prev=document.getElementById("ovl"),sc=prev&&prev.scrollTop;openOvl(o);if(sc)document.getElementById("ovl").scrollTop=sc;
+  var det=document.querySelector("#ovl details");
+}
+
+// ---------- オンライン対戦の通信 ----------
+function OnlineSession(){
+  this.phase="idle";this.room="";this.token="";this.seat=0;this.isRandom=false;this.status=null;this.error=null;
+  this.tx=[];this.rx=0;this.q=[];this.waiter=null;this.terminal=null;this.ended=false;
+  this.ws=null;this.ready=false;this.haveRoom=false;this.first=null;this.deadline=0;this.gen=0;this.timer=null;
+  this.onChange=function(){};this.onEnd=null;this.onStatus=null;
+}
+OnlineSession.prototype.setStatus=function(t){this.status=t;if(this.onStatus)this.onStatus(t);this.onChange()};
+OnlineSession.prototype.create=function(){this.phase="connecting";this.setStatus("サーバーに接続中…（しばらく使っていないと、最初の接続に1分ほどかかることがあります）");this.first={t:"create",ver:1};this.open()};
+OnlineSession.prototype.matchmake=function(){this.phase="connecting";this.isRandom=true;this.setStatus("サーバーに接続中…（しばらく使っていないと、最初の接続に1分ほどかかることがあります）");this.first={t:"queue",ver:1};this.open()};
+OnlineSession.prototype.join=function(code){this.phase="connecting";this.setStatus("サーバーに接続中…（しばらく使っていないと、最初の接続に1分ほどかかることがあります）");this.first={t:"join",room:code.toUpperCase(),ver:1};this.open()};
+OnlineSession.prototype.open=function(){
+  var self=this,gen=++this.gen;this.ready=false;wakeServer();
+  var ws;try{ws=new WebSocket(wsBase())}catch(e){this.failBefore("サーバーのアドレスが正しくありません");return}
+  this.ws=ws;
+  ws.onopen=function(){if(gen!==self.gen)return;self.ready=true;
+    if(self.haveRoom)ws.send(JSON.stringify({t:"rejoin",room:self.room,token:self.token,rx:self.rx}));
+    else if(self.first)ws.send(JSON.stringify(self.first));
+    if(!self.timer)self.timer=setInterval(function(){if(!self.ended&&self.ready&&self.ws&&self.ws.readyState===1)self.ws.send('{"t":"ping"}')},15000)};
+  ws.onmessage=function(ev){if(gen!==self.gen||self.ended)return;self.handle(ev.data)};
+  ws.onclose=function(){if(gen!==self.gen)return;self.socketFailed()};
+  ws.onerror=function(){};
+};
+OnlineSession.prototype.rawSend=function(o){if(this.ws&&this.ws.readyState===1)this.ws.send(typeof o==="string"?o:JSON.stringify(o))};
+OnlineSession.prototype.socketFailed=function(){
+  if(this.ended)return;this.ready=false;this.gen++;
+  try{this.ws&&this.ws.close()}catch(e){}this.ws=null;
+  if(!this.haveRoom){this.failBefore("サーバーにつながりませんでした。アドレスと通信状況を確かめて、しばらくしてからやり直してください");return}
+  var now=Date.now();if(!this.deadline)this.deadline=now+120000;
+  if(now>this.deadline){this.finish({ended:"failed",m:"通信が回復しませんでした"});return}
+  this.setStatus("再接続中…");var self=this;setTimeout(function(){if(!self.ended&&!self.ws)self.open()},2000);
+};
+OnlineSession.prototype.failBefore=function(m){this.phase="failed";this.error=m;this.shutdownSocket();this.ended=true;this.onChange()};
+OnlineSession.prototype.shutdownSocket=function(){clearInterval(this.timer);this.timer=null;this.gen++;try{this.ws&&this.ws.close()}catch(e){}this.ws=null};
+OnlineSession.prototype.handle=function(text){
+  var m;try{m=JSON.parse(text)}catch(e){return}
+  switch(m.t){
+    case"created":this.haveRoom=true;this.room=m.room;this.token=m.token;this.seat=m.seat|0;this.phase="waiting";this.setStatus(this.isRandom?"対戦相手を探しています…":"相手が入るのを待っています…");break;
+    case"joined":this.haveRoom=true;this.room=m.room;this.token=m.token;this.seat=m.seat|0;this.phase="waiting";this.setStatus("接続しました");break;
+    case"queued":this.phase="waiting";this.setStatus("対戦相手を探しています…（同じように探している人と自動で組みます）");break;
+    case"ready":this.phase="ready";this.setStatus(null);break;
+    case"rejoined":{this.deadline=0;var ack=m.ack|0;for(var i=ack;i<this.tx.length;i++)this.rawSend(this.tx[i]);this.setStatus(m.peerOnline===false?"相手の接続が切れています…":null);break}
+    case"peer":this.setStatus(m.online===false?"相手の接続が切れています…（最大90秒待ちます）":null);break;
+    case"msg":{var n=m.n|0;if(n!==this.rx)return;this.rx++;this.push({message:m.d});break}
+    case"left":this.finish({ended:"opponentLeft"});break;
+    case"forfeit":this.finish({ended:"opponentForfeit"});break;
+    case"error":if(!this.haveRoom)this.failBefore(m.m||"通信エラー");else this.finish({ended:"failed",m:m.m||"通信エラー"});break;
+  }
+};
+OnlineSession.prototype.send=function(d){if(this.ended)return;var s=JSON.stringify({t:"msg",n:this.tx.length,d:d});this.tx.push(s);if(this.ready)this.rawSend(s)};
+OnlineSession.prototype.push=function(e){if(this.waiter){var w=this.waiter;this.waiter=null;w(e)}else this.q.push(e)};
+OnlineSession.prototype.next=function(){var self=this;return new Promise(function(res){if(self.q.length)res(self.q.shift());else if(self.terminal)res(self.terminal);else self.waiter=res})};
+OnlineSession.prototype.finish=function(end){
+  if(this.ended)return;this.ended=true;this.terminal=end;this.shutdownSocket();
+  if(this.waiter){var w=this.waiter;this.waiter=null;w(end)}
+  if(this.onEnd)this.onEnd(end);this.onChange();
+};
+OnlineSession.prototype.leave=function(){
+  if(this.ended)return;if(this.ready)this.rawSend({t:"leave"});
+  var self=this;this.ended=true;this.terminal={ended:"selfLeft"};
+  if(this.waiter){var w=this.waiter;this.waiter=null;w(this.terminal)}
+  setTimeout(function(){self.shutdownSocket()},1000);
+};
+OnlineSession.prototype.close=function(){var self=this;if(this.ended)return;this.ended=true;this.terminal={ended:"selfLeft"};setTimeout(function(){self.shutdownSocket()},3000)};
+
+function syncHash(g){
+  var h=0x811c9dc5;function mix(v){h^=(v|0);h=Math.imul(h,16777619)>>>0}
+  mix(g.turnNumber);mix(g.currentPlayer);mix(g.stadiumCard?g.stadiumCard.id:-1);
+  for(var p=0;p<2;p++){var s=g.players[p];mix(s.deck.length);mix(s.discard.length);mix(s.prizes.length);mix(s.hand.length);s.hand.forEach(function(c){mix(c.id)});
+    if(s.active){mix(s.active.id);mix(s.active.damage);mix(s.active.attachedEnergy.length)}else mix(-1);
+    s.bench.forEach(function(b){mix(b.id);mix(b.damage);mix(b.attachedEnergy.length)})}
+  return h>>>0;
+}
+function deckToWire(d){return{cards:d.cards.map(function(c){return[c.cardNumber,c.count]}),energy:d.energy.map(function(e){return[e.type,e.count]}),arts:d.arts||{}}}
+function deckFromWire(w){
+  if(!w||!Array.isArray(w.cards)||!Array.isArray(w.energy))return null;
+  var cards=[],energy=[];
+  for(var i=0;i<w.cards.length;i++){var c=w.cards[i];if(!Array.isArray(c)||c.length!==2||!(c[1]>=0&&c[1]<=60))return null;cards.push({cardNumber:+c[0],count:+c[1]})}
+  for(var j=0;j<w.energy.length;j++){var e=w.energy[j];if(!Array.isArray(e)||e.length!==2||typeof e[0]!=="string"||!(e[1]>=0&&e[1]<=60))return null;energy.push({type:e[0],count:+e[1]})}
+  var arts={};if(w.arts&&typeof w.arts==="object")Object.keys(w.arts).forEach(function(k){if(/^[A-Za-z0-9_:]{1,48}$/.test(k))arts[k]=+w.arts[k]||0});
+  return{cards:cards,energy:energy,arts:arts};
+}
+
+// ---------- オンライン対戦をはじめる ----------
+function onlineStart(mode,code){
+  var dl=currentDeckList();if(!dl||PK.DeckList.validate(dl).length){toast("使えるデッキがありません");return}
+  var s=new OnlineSession();B.os=s;B.osCode="";
+  s.onChange=function(){if(!B.running&&!$("t-battle").hidden)renderBattle();
+    if(s.phase==="ready"&&!s._fired){s._fired=true;onlineBegin(s,dl)}};
+  if(mode==="random")s.matchmake();else if(mode==="create")s.create();else s.join(code);
+  renderBattle();
+}
+function onlineWait(el){
+  var s=B.os;
+  var h="<div class='panel' style='text-align:center'><h2 style='margin:0 0 8px'>オンライン対戦</h2>";
+  if(s.phase==="failed")h+="<p class='warn'>"+esc(s.error||"つながりませんでした")+"</p>";
+  else{
+    if(s.room&&!s.isRandom)h+="<p class='muted' style='margin:0'>合言葉</p><div style='font:800 3.4rem/1.1 ui-monospace,Menlo,monospace;letter-spacing:.1em'>"+esc(s.room)+"</div><p class='muted'>この合言葉を相手に伝えてください</p>";
+    h+="<p class='muted'>"+esc(s.status||"")+"</p>";
+  }
+  h+="<button class='btn sub' id='o-cancel'>"+(s.phase==="failed"?"もどる":"やめる")+"</button></div>";
+  el.innerHTML=h;$("o-cancel").onclick=function(){s.leave();B.os=null;renderBattle()};
+}
+function onlineBegin(s,mine){
+  var seat=s.seat,seed=0;
+  var hello={k:"hello",dv:WEB_DV,deck:deckToWire(mine),name:myName()||"あなた"};
+  if(seat===0){seed=(Math.random()*4294967296)>>>0;hello.seed=String(seed)}
+  s.send(hello);
+  s.next().then(function(ev){
+    if(ev.ended){B.os=null;B.result={win:false,text:onlineEndText(ev)};B.running=false;draw();return}
+    var d=ev.message;
+    function abort(m){s.finish({ended:"failed",m:m})}
+    if(!d||d.k!=="hello"||typeof d.dv!=="string"){abort("相手のデータを読めませんでした");return}
+    if(d.dv!==WEB_DV){abort("相手とカードデータの版が違います。両方が同じ版のサイトを開いてください");return}
+    var pd=deckFromWire(d.deck);if(!pd||PK.DeckList.validate(pd).length){abort("相手のデッキがルールに合っていません");return}
+    if(seat!==0){seed=Number(d.seed);if(!isFinite(seed)){abort("相手のデータを読めませんでした");return}seed=seed>>>0}
+    B.oppName=String(d.name||"相手").slice(0,12);
+    var deck0=PK.DeckList.makeBattleCards(seat===0?mine:pd,0,true),deck1=PK.DeckList.makeBattleCards(seat===0?pd:mine,1000,true);
+    var human={chooseAction:function(g,p,acts){return new Promise(function(res){B.pending={type:"action",actions:acts,res:res};draw()})},
+      choose:function(g,p,req){return new Promise(function(res){B.pending={type:"choice",req:req,res:res};draw()})}};
+    var local={
+      chooseAction:async function(g,p,acts){var h=syncHash(g),i=await human.chooseAction(g,p,acts);if(!B.cancelled)s.send({k:"a",v:i,h:h});return i},
+      choose:async function(g,p,req){var h=syncHash(g),a=await human.choose(g,p,req);if(!B.cancelled)s.send({k:"c",v:a==null?-1:a,h:h});return a}};
+    async function recv(g,kind){
+      var h=syncHash(g);B.waiting=true;draw();var e=await s.next();B.waiting=false;
+      if(e.ended)return undefined;
+      var m=e.message;
+      if(!m||m.k!==kind||typeof m.v!=="number"){abort("通信の内容が合いませんでした");return undefined}
+      if(typeof m.h==="number"&&m.h!==h){abort("相手との盤面がずれました（同期エラー）");return undefined}
+      return m.v;
+    }
+    var remote={
+      chooseAction:async function(g,p,acts){
+        var v=await recv(g,"a");
+        if(v===undefined||B.cancelled){if(g.result==null)g.result={draw:true};return acts.length-1}
+        if(v>=0&&v<acts.length&&acts[v].t!=="endTurn")toast("相手: "+g.describe(acts[v],p));
+        draw();await sleep(600);return v;
+      },
+      choose:async function(g,p,req){
+        var v=await recv(g,"c");
+        if(v===undefined||B.cancelled){if(g.result==null)g.result={draw:true};return null}
+        return v<0?null:v;
+      }};
+    var game=new PK.BattleGame(deck0,deck1,seat===0?[local,remote]:[remote,local],null,seed);
+    B.game=game;B.me=seat;B.log=[];B.running=true;B.result=null;B.reward=null;B.pending=null;B.logOpen=false;B.cancelled=false;B.online=s;UI.lastTurn=-1;
+    s.onEnd=function(end){
+      if(B.cancelled||!B.running||B.game!==game)return;B.cancelled=true;
+      if(B.pending){var p=B.pending;B.pending=null;if(p.type==="action")p.res(p.actions.length-1);else p.res(null)}
+      var r={ended:end.ended,win:end.ended==="opponentLeft"||end.ended==="opponentForfeit"};
+      game.result=r.win?{win:seat}:{draw:true};
+      B.remoteEnd=end;
+    };
+    game.onLog=function(t){B.log.push(t);draw()};
+    game.run().then(function(r){finishBattle(game,B.remoteEnd?{win:B.remoteEnd.ended==="failed"?undefined:seat,draw:B.remoteEnd.ended==="failed"}:r);if(!B.cancelled)s.close()},function(e){B.log.push("エラー: "+e.message);B.running=false;B.error=e;draw()});
+    draw();
+  });
+}
+function onlineEndText(end){return end.ended==="opponentLeft"?"相手が対戦をやめました。あなたの勝ち！":end.ended==="opponentForfeit"?"相手が戻ってこなかったので、あなたの勝ちです":"対戦を続けられませんでした\n"+(end.m||"")}
 
 renderYen();showTab("pack");
 </script>
