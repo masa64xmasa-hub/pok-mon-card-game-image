@@ -129,8 +129,6 @@ main.wide{max-width:none;padding:0}
 .burst{position:absolute;inset:0;border:5px solid #ffd60a;border-radius:8px;animation:bs 1.1s ease-out .2s both;pointer-events:none;display:flex;align-items:flex-start;justify-content:center}
 .burst span{font-weight:800;color:#ff9500;text-shadow:0 0 2px #fff,0 0 2px #fff;font-size:15px}
 @keyframes bs{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(1.4)}}
-.pcard .cimg{animation:land .5s ease both}
-@keyframes land{from{opacity:.4;transform:translateY(-8px)}to{opacity:1;transform:none}}
 
 /* ===== パック開封演出 ===== */
 .pko{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:700;color:#fff;overflow:hidden;user-select:none;-webkit-user-select:none}
@@ -219,13 +217,49 @@ function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;
 
 // ---------- 画像 ----------
 var EXT=["jpg","png","webp"];
-function imgEl(name){
+// 画像は1回だけ読み込んでおぼえておく（画面を作り直しても、すぐ同じ画像が出るので消えない）。
+// 一覧(ショップ・デッキ・図鑑)では縮小版（軽い）を、対戦・開封・拡大では元の画像を使う。
+var IMGC={},imgWait={},imgQ=[],imgBusy=0,THUMB_W=240;
+function imgPump(){
+  while(imgBusy<6&&imgQ.length){var name=imgQ.shift();imgBusy++;imgLoad(name,0,true)}
+}
+function imgDone(name,full,thumb){
+  IMGC[name]={full:full,thumb:thumb};imgBusy--;
+  var l=imgWait[name]||[];delete imgWait[name];l.forEach(function(f){f()});imgPump();
+}
+function imgLoad(name,k,cors){
+  var im=new Image();if(cors)im.crossOrigin="anonymous";
+  im.onload=function(){
+    var url=im.src,thumb=url;
+    if(cors&&im.naturalWidth>THUMB_W){
+      try{var cv=document.createElement("canvas"),w=THUMB_W,h=Math.round(im.naturalHeight*w/im.naturalWidth);cv.width=w;cv.height=h;
+        cv.getContext("2d").drawImage(im,0,0,w,h);
+        cv.toBlob(function(bl){imgDone(name,url,bl?URL.createObjectURL(bl):url)},"image/jpeg",0.72);return}catch(e){}
+    }
+    imgDone(name,url,thumb);
+  };
+  im.onerror=function(){
+    if(k+1<EXT.length)imgLoad(name,k+1,cors);
+    else if(cors){imgLoad(name,0,false)}  // CORSが使えない場合は縮小せずそのまま
+    else imgDone(name,null,null);
+  };
+  im.src=IMAGE_BASE+encodeURIComponent(name)+"."+EXT[k];
+}
+function imgGet(name,cb){
+  if(IMGC[name]){cb();return}
+  if(imgWait[name]){imgWait[name].push(cb);return}
+  imgWait[name]=[cb];imgQ.push(name);imgPump();
+}
+var imgObs=("IntersectionObserver" in window)?new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){imgObs.unobserve(e.target);e.target._go&&e.target._go()}})},{rootMargin:"400px"}):null;
+function imgEl(name,full){
   var wrap=document.createElement("div");wrap.className="cimg"+((ART[name]&&ART[name].mirror)?" mirror":"");
   var fb=document.createElement("div");fb.className="fb";fb.textContent=(ART[name]?ART[name].name:name);wrap.appendChild(fb);
-  var im=new Image(),k=0;im.loading="lazy";im.alt=ART[name]?ART[name].name:name;
-  im.onload=function(){fb.hidden=true};
-  im.onerror=function(){k++;if(k<EXT.length)im.src=IMAGE_BASE+encodeURIComponent(name)+"."+EXT[k];else im.remove()};
-  im.src=IMAGE_BASE+encodeURIComponent(name)+"."+EXT[0];wrap.insertBefore(im,fb);
+  var im=new Image();im.alt=ART[name]?ART[name].name:name;im.decoding="sync";im.draggable=false;
+  wrap.insertBefore(im,fb);
+  function apply(){var c=IMGC[name];if(!c||!c.full){im.remove();return}im.onload=function(){fb.hidden=true};im.src=full?c.full:c.thumb;if(im.complete)fb.hidden=true}
+  if(IMGC[name]){apply();return wrap}
+  wrap._go=function(){imgGet(name,apply)};
+  if(imgObs&&!full)imgObs.observe(wrap);else wrap._go();
   return wrap;
 }
 function tileFor(name,count,opt){
@@ -389,7 +423,7 @@ function renderPack(){
 function renderSetPack(el,cf){
   var box=document.createElement("div");box.className="panel packbox";
   var pk=document.createElement("div");pk.className="pk";
-  pk.appendChild(imgEl(cf.prefix+(packMode===0?"pack_front":packMode===1?"box_front":"carton_front")));
+  pk.appendChild(imgEl(cf.prefix+(packMode===0?"pack_front":packMode===1?"box_front":"carton_front"),true));
   var info=document.createElement("div");info.style.flex="1 1 240px";
   var perCard=cf.cards;
   info.innerHTML="<h2 style='margin:0 0 4px'>"+esc(cf.name)+"</h2><p class='muted' style='margin:0 0 10px'>1パック"+perCard+"枚・"+cf.price+"円。1ボックス="+cf.ppb+"パック、1カートン="+cf.bpc+"ボックス。ボックスとカートンは、中のカードの出方を弾ごとの決まりどおりにそろえます。</p>";
@@ -445,7 +479,7 @@ function packStage(name,H){
 }
 function cardFront(art,cw){
   var d=document.createElement("div");d.className="cfront";d.style.width=cw+"px";d.style.height=(cw/0.716)+"px";
-  d.appendChild(imgEl(art));return d;
+  d.appendChild(imgEl(art,true));return d;
 }
 // 1パックをなぞって切る → 空パックを下へ払う。firstArt があれば中から1枚目が出てくる
 function cutScene(imgName,firstArt,rapid,done){
@@ -726,7 +760,7 @@ function grantDeck(d,price,free){
 var lastOpen=null;
 function renderSD100Pack(el){
   var box=document.createElement("div");box.className="panel packbox";
-  var pk=document.createElement("div");pk.className="pk";pk.appendChild(imgEl("SD100_pack_front"));
+  var pk=document.createElement("div");pk.className="pk";pk.appendChild(imgEl("SD100_pack_front",true));
   var info=document.createElement("div");info.style.flex="1 1 240px";
   info.innerHTML="<h2 style='margin:0 0 4px'>スタートデッキ100</h2><p class='muted' style='margin:0 0 10px'>"+PRICE+"円。101種類のデッキから、全部同じ確率で1つ出ます（シークレットも同じ確率）。出たデッキは持ち物に入り、デッキとして保存されて「いま使うデッキ」になります。</p>";
   var row=document.createElement("div");row.className="row";
@@ -958,7 +992,7 @@ function openOvl(node,onclose){
 function runAct(i){closeOvl();var p=B.pending;if(!p||p.type!=="action")return;B.pending=null;p.res(i)}
 function myActs(){return(B.pending&&B.pending.type==="action")?B.pending.actions:[]}
 function cardFace(c){
-  if(c.imageName)return imgEl(c.imageName);
+  if(c.imageName)return imgEl(c.imageName,true);
   var e=energyTile(c);return e;
 }
 function toast(t){var d=document.createElement("div");d.className="toast";d.textContent=t;document.body.appendChild(d);setTimeout(function(){d.remove()},1500)}
@@ -969,7 +1003,7 @@ function popEl(text,color){var d=document.createElement("div");d.className="hitp
 function pokeTile(pk,w,isMine,hl){
   var t=document.createElement("div");t.className="ptile";t.style.width=(w+6)+"px";
   var card=document.createElement("div");card.className="pcard";card.style.width=w+"px";
-  var im=imgEl(pk.top.imageName);card.appendChild(im);
+  var im=imgEl(pk.top.imageName,true);card.appendChild(im);
   var en=0;pk.attachedEnergy.forEach(function(){en++});
   var prev=UI.seen.get(pk),cur={hp:pk.remainingHP,en:en,img:pk.top.imageName,dmg:pk.hp-pk.remainingHP};
   if(prev){
@@ -1018,7 +1052,7 @@ function handMenu(i,c){
 }
 function pokeMenu(pk,slot){
   var g=B.game,acts=myActs(),box=document.createElement("div");box.className="zoom";
-  var w=document.createElement("div");w.className="zimg small";w.appendChild(imgEl(pk.top.imageName));box.appendChild(w);
+  var w=document.createElement("div");w.className="zimg small";w.appendChild(imgEl(pk.top.imageName,true));box.appendChild(w);
   var tx=document.createElement("div");tx.className="ztext";
   tx.innerHTML="<b>"+esc(pk.name)+"</b>　HP "+pk.remainingHP+"/"+pk.hp;
   var list=document.createElement("div");list.className="mlist";
