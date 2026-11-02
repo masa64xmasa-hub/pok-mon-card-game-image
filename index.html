@@ -131,6 +131,33 @@ main.wide{max-width:none;padding:0}
 @keyframes bs{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(1.4)}}
 .pcard .cimg{animation:land .5s ease both}
 @keyframes land{from{opacity:.4;transform:translateY(-8px)}to{opacity:1;transform:none}}
+
+/* ===== パック開封演出 ===== */
+.pko{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:700;color:#fff;overflow:hidden;user-select:none;-webkit-user-select:none}
+.pkwrap{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px}
+.pkholder{position:relative;display:flex;align-items:center;justify-content:center;width:100%}
+.pkstage{position:relative;flex:none}
+.pkstage.ghost{position:absolute;left:50%;margin-left:0;top:0;translate:-50% 0}
+.pkstack{position:absolute;left:50%;top:0;translate:-50% 0;pointer-events:none}
+.pkholder>.pkstage{margin:0 auto}
+.pklayer{position:absolute;inset:0}
+.pklayer img{width:100%;height:100%;object-fit:contain;display:block;pointer-events:none;-webkit-user-drag:none}
+.pklayer.pkfb{background:#3a4152;border-radius:10px}
+.pkline{position:absolute;height:3px;background:#fff;box-shadow:0 0 6px #fff;width:0;opacity:0}
+.pkcard{position:absolute;left:50%;top:50%;translate:-50% -50%;filter:drop-shadow(0 4px 8px rgba(0,0,0,.4));pointer-events:none}
+.pkhint{margin-top:18px;font-weight:700;font-size:1.05rem;text-align:center}.pkhint.y{color:#ffd60a;margin-top:0}
+.pktitle{font-weight:700;font-size:1.25rem}
+.cfront{border-radius:16px;background:#fff;box-shadow:0 5px 10px rgba(0,0,0,.6);overflow:hidden}
+.cfront .cimg{border-radius:16px;height:100%;box-shadow:none}
+.cstage{position:relative;touch-action:none}
+.cslot{position:absolute;inset:0;will-change:transform}
+.burst{position:absolute;left:50%;top:50%;width:0;height:0;z-index:999;pointer-events:none}
+.bpart{position:absolute;border-radius:2px;left:0;top:0;margin:-4px}
+.bray{position:absolute;left:0;top:0;transform-origin:0 50%}
+.bring{position:absolute;left:0;top:0;border:5px solid;border-radius:50%;translate:-50% -50%}
+.bflash{position:fixed;inset:0;background:#fff;z-index:850;pointer-events:none;opacity:0}
+.pkb2{font:inherit;color:#aaa;background:transparent;border:0;cursor:pointer;padding:6px 14px}
+.pkb2.purple{color:#fff;background:#af52de;border-radius:8px;font-weight:700;font-size:.9rem}
 </style>
 </head>
 <body>
@@ -366,6 +393,184 @@ function renderSetPack(el,cf){
   box.appendChild(pk);box.appendChild(info);el.appendChild(box);
   if(lastPack&&lastPack.set===cf.prefix){var r=document.createElement("div");r.style.marginTop="14px";el.appendChild(r);renderPackResult(r,lastPack)}
 }
+// ===== Swift風 パック開封演出 =====
+function tierOf(r,cf){
+  switch(r){
+    case"MIR":return 1;case"AR":case"RR":return 2;
+    case"SAR":case"SR_Pokemon":case"SR_Goods":case"MA":return 3;
+    case"MUR":return 4;
+    case"R":return(cf&&!cf.dream)?1:0;
+  }return 0;
+}
+function pkOverlay(){
+  var o=document.createElement("div");o.id="pko";o.className="pko";document.body.appendChild(o);document.body.style.overflow="hidden";return o;
+}
+function pkClose(){var o=document.getElementById("pko");if(o)o.remove();document.body.style.overflow=""}
+function packStage(name,H){
+  var st=document.createElement("div");st.className="pkstage";st.style.height=H+"px";st.style.width=Math.round(H*0.66)+"px";
+  var TEAR=75/460;
+  function layer(css){
+    var l=document.createElement("div");l.className="pklayer";l.style.clipPath=css;
+    var im=new Image();im.draggable=false;var k=0;
+    im.onload=function(){if(im.naturalHeight)st.style.width=Math.round(H*im.naturalWidth/im.naturalHeight)+"px"};
+    im.onerror=function(){k++;if(k<EXT.length)im.src=IMAGE_BASE+encodeURIComponent(name)+"."+EXT[k];else{im.remove();l.classList.add("pkfb")}};
+    im.src=IMAGE_BASE+encodeURIComponent(name)+"."+EXT[0];l.appendChild(im);return l;
+  }
+  var body=layer("inset("+(TEAR*100)+"% 0 0 0)"),strip=layer("inset(0 0 "+((1-TEAR)*100)+"% 0)");
+  var line=document.createElement("div");line.className="pkline";line.style.top=(TEAR*100)+"%";
+  st.appendChild(body);st.appendChild(strip);st.appendChild(line);
+  var dir=1;
+  return {st:st,body:body,strip:strip,line:line,
+    W:function(){return st.clientWidth||H*0.66},
+    sweep:function(p,d){dir=d;line.style.opacity=1;line.style.width=(p*100)+"%";line.style.left=d>=0?"0":"auto";line.style.right=d>=0?"auto":"0"},
+    open:function(ms){
+      line.style.opacity=0;
+      strip.style.transition="transform "+ms+"ms ease-out,opacity "+ms+"ms ease-out";
+      strip.style.transformOrigin=dir>=0?"0 "+(TEAR*100)+"%":"100% "+(TEAR*100)+"%";
+      strip.style.transform="translate("+(dir*st.clientWidth)+"px,-60px) rotate("+(25*dir)+"deg)";strip.style.opacity=0;
+      body.style.transition="transform "+ms+"ms ease-out";body.style.transform="translateY(50px)";
+    }};
+}
+function cardFront(art,cw){
+  var d=document.createElement("div");d.className="cfront";d.style.width=cw+"px";d.style.height=(cw/0.716)+"px";
+  d.appendChild(imgEl(art));return d;
+}
+// 1パックをなぞって切る → 空パックを下へ払う。firstArt があれば中から1枚目が出てくる
+function cutScene(imgName,firstArt,rapid,done){
+  var o=pkOverlay(),H=Math.min(460,Math.round(window.innerHeight*0.56));
+  var cw=Math.min(310,Math.round(H*0.716*0.95));
+  var wrap=document.createElement("div");wrap.className="pkwrap";o.appendChild(wrap);
+  var spacer=document.createElement("div");spacer.style.flex="1";wrap.appendChild(spacer);
+  var hint=document.createElement("div");hint.className="pkhint";
+  var P=packStage(imgName,H);
+  var holder=document.createElement("div");holder.className="pkholder";holder.style.height=H+"px";
+  if(rapid){
+    var title=document.createElement("div");title.className="pktitle";wrap.insertBefore(title,spacer);
+    wrap.appendChild(holder);holder.appendChild(P.st);
+    var stack=document.createElement("div");stack.className="pkstack";holder.insertBefore(stack,P.st);
+    (async function(){
+      var N=rapid,dt=N>30?70:N>10?130:220;
+      for(var i=1;i<=N;i++){
+        title.textContent=i+" / "+N+" パック開封中！";
+        stack.innerHTML="";
+        var rem=N-i;for(var d=Math.min(rem,4);d>=1;d--){var c=P.st.cloneNode(true);c.className="pkstage ghost";c.style.transform="translateY("+(d*16)+"px) scale("+(1-d*0.05)+")";c.style.opacity=Math.max(.55-d*.12,.1);stack.appendChild(c)}
+        P.strip.style.transition="none";P.body.style.transition="none";P.strip.style.transform="";P.strip.style.opacity=1;P.body.style.transform="";P.body.style.opacity=1;
+        P.sweep(0,i%2?1:-1);void P.st.offsetWidth;
+        P.line.style.transition="width "+(dt*0.4)+"ms ease-in";P.sweep(1,i%2?1:-1);
+        await sleep(dt*0.4);P.line.style.transition="none";P.open(dt*0.4);
+        if(navigator.vibrate)navigator.vibrate(8);
+        await sleep(dt*0.6);
+      }
+      await sleep(250);pkClose();done();
+    })();
+    return;
+  }
+  var holderIn=holder;holder.style.width="auto";
+  if(firstArt){var cwrap=document.createElement("div");cwrap.className="pkcard";cwrap.style.opacity=0;cwrap.style.transform="scale(.6)";cwrap.appendChild(cardFront(firstArt,cw));holder.appendChild(cwrap);}
+  holder.appendChild(P.st);wrap.appendChild(holder);wrap.appendChild(hint);
+  var sp2=document.createElement("div");sp2.style.flex="1";wrap.appendChild(sp2);
+  hint.textContent="パックを指でなぞってカット！";
+  var opened=false,dismissed=false,x0=0,y0=0,drag=false,dir=1,sw=0,bodyDy=0;
+  holder.style.touchAction="none";holder.style.cursor="grab";
+  holder.onpointerdown=function(e){drag=true;x0=e.clientX;y0=e.clientY;holder.setPointerCapture(e.pointerId)};
+  holder.onpointermove=function(e){
+    if(!drag)return;
+    if(!opened){var raw=(e.clientX-x0)/P.W();dir=raw>=0?1:-1;sw=Math.min(Math.abs(raw),1);P.line.style.transition="none";P.sweep(sw,dir)}
+    else if(!dismissed){bodyDy=Math.max(0,e.clientY-y0);P.body.style.transition="none";P.body.style.transform="translateY("+(50+bodyDy)+"px)"}
+  };
+  function end(){
+    if(!drag)return;drag=false;
+    if(!opened){
+      if(sw>=0.6){
+        opened=true;if(navigator.vibrate)navigator.vibrate(12);
+        P.line.style.transition="width .1s ease-in";P.sweep(1,dir);
+        setTimeout(function(){P.open(400);var c=holder.querySelector(".pkcard");if(c){c.style.transition="opacity .4s,transform .3s";c.style.opacity=1}
+          hint.textContent="空になったパックを下にスライドして払いのけよう"},100);
+      }else{P.line.style.transition="width .3s";P.sweep(0,dir)}
+    }else if(!dismissed){
+      if(bodyDy>=100){
+        dismissed=true;P.body.style.transition="transform .4s ease-in";P.body.style.transform="translateY(1200px)";hint.textContent="カードを取り出し中…";
+        setTimeout(function(){P.body.style.opacity=0;var c=holder.querySelector(".pkcard");if(c){c.style.transition="transform .3s ease-out";c.style.transform="scale(1)"}
+          setTimeout(function(){pkClose();done()},firstArt?350:100)},400);
+      }else{P.body.style.transition="transform .3s";P.body.style.transform="translateY(50px)";bodyDy=0}
+    }
+  }
+  holder.onpointerup=end;holder.onpointercancel=end;
+}
+// カードをめくる画面
+function flipScene(cards,cf,done){
+  var o=pkOverlay(),n=cards.length,cur=0,flying=false,busy=false;
+  var cw=Math.min(310,Math.round((window.innerHeight-260)*0.716),window.innerWidth-48);cw=Math.max(cw,150);var ch=Math.round(cw/0.716);
+  var wrap=document.createElement("div");wrap.className="pkwrap";wrap.style.gap="18px";o.appendChild(wrap);
+  var cnt=document.createElement("div");cnt.className="pktitle";wrap.appendChild(cnt);
+  var stage=document.createElement("div");stage.className="cstage";stage.style.width=cw+"px";stage.style.height=ch+"px";wrap.appendChild(stage);
+  var hint=document.createElement("div");hint.className="pkhint y";wrap.appendChild(hint);
+  var b1=document.createElement("button");b1.className="pkb2";b1.textContent="途中でやめる";b1.onclick=function(){pkClose();done()};wrap.appendChild(b1);
+  var b2=document.createElement("button");b2.className="pkb2 purple";b2.textContent="結果を一覧でまとめて見る";b2.onclick=function(){pkClose();done()};wrap.appendChild(b2);
+  var els={},dx=0,dy=0;
+  function mk(i){
+    if(els[i]||i>=n)return;
+    var e=document.createElement("div");e.className="cslot";e.style.zIndex=n-i;e.appendChild(cardFront(cards[i].art,cw));stage.appendChild(e);els[i]=e;
+  }
+  function place(){
+    for(var i=cur;i<Math.min(cur+3,n);i++){mk(i);var d=i-cur,e=els[i];
+      if(i===cur&&(dx||dy))continue;
+      e.style.transition="transform .25s ease-out";e.style.transform="translate(0,"+(d*12)+"px) scale("+(1-d*0.04)+")"}
+    cnt.textContent=(cur+1)+" / "+n+" 枚目";
+    hint.textContent=cur<n-1?"スライドまたはタップしてカードをめくる":"スライドまたはタップして完了";
+  }
+  function top(){return els[cur]}
+  function reveal(c){
+    var t=tierOf(c.rarity,cf);if(!t)return;
+    busy=true;setTimeout(function(){busy=false},800);
+    if(navigator.vibrate)navigator.vibrate(t>=3?[30,40,30]:15);
+    burst(stage,t);
+    if(t>=2){var pop=t===4?1.35:t===3?1.25:1.12,e=top();e.style.transition="none";e.style.transform="scale("+pop+")";void e.offsetWidth;e.style.transition="transform .35s cubic-bezier(.34,1.56,.64,1)";e.style.transform="translate(0,0) scale(1)"}
+    if(t===4){var seq=[-14,12,-10,8,-5,0];seq.forEach(function(v,k){setTimeout(function(){wrap.style.transform="translateX("+v+"px)"},k*45)})}
+  }
+  function fling(vx,vy){
+    flying=true;var L=Math.max(Math.hypot(vx,vy),1),tx=vx/L*1200,ty=vy/L*1200,e=top();
+    e.style.transition="transform .5s ease-in";e.style.transform="translate("+tx+"px,"+ty+"px) rotate("+(tx/20)+"deg)";
+    setTimeout(function(){
+      dx=dy=0;
+      if(cur>=n-1){pkClose();done();return}
+      e.remove();delete els[cur];cur++;place();reveal(cards[cur]);flying=false;
+    },480);
+  }
+  var down=false,x0=0,y0=0,moved=0;
+  stage.style.touchAction="none";stage.style.cursor="grab";
+  stage.onpointerdown=function(e){if(flying||busy)return;down=true;x0=e.clientX;y0=e.clientY;moved=0;stage.setPointerCapture(e.pointerId)};
+  stage.onpointermove=function(e){if(!down)return;dx=e.clientX-x0;dy=e.clientY-y0;moved=Math.max(moved,Math.hypot(dx,dy));var t=top();t.style.transition="none";t.style.transform="translate("+dx+"px,"+dy+"px) rotate("+(dx/20)+"deg)"};
+  function up(){
+    if(!down)return;down=false;var dist=Math.hypot(dx,dy);
+    if(moved<10){dx=dy=0;fling(0,-1)}
+    else if(dist>60)fling(dx,dy);
+    else{dx=dy=0;var t=top();t.style.transition="transform .35s cubic-bezier(.34,1.3,.64,1)";t.style.transform="translate(0,0) scale(1)"}
+  }
+  stage.onpointerup=up;stage.onpointercancel=up;
+  place();reveal(cards[0]);
+}
+function burst(host,tier){
+  var COL={1:["#30b0c7","#fff"],2:["#ff9500","#ffd60a"],3:["#ff2d92","#af52de","#fff","#ffd60a"],4:["#ffd60a","#ff9500","#fff","#ff2d92","#32ade6","#af52de"]}[tier];
+  var cnt={1:16,2:24,3:44,4:70}[tier],R={1:140,2:190,3:260,4:340}[tier],ps=tier>=3?12:8,dur=(tier===4?1:tier===3?.9:.7)*1000;
+  var rays=tier===4?14:tier===3?8:0;
+  var b=document.createElement("div");b.className="burst";host.appendChild(b);
+  if(tier>=3){var f=document.createElement("div");f.className="bflash";document.body.appendChild(f);
+    f.animate([{opacity:tier===4?.55:.35},{opacity:0}],{duration:dur,easing:"ease-out"}).onfinish=function(){f.remove()}}
+  for(var i=0;i<rays;i++){var r=document.createElement("div");r.className="bray";r.style.width=(R*1.6)+"px";r.style.height=(tier===4?10:6)+"px";r.style.background="linear-gradient(90deg,"+COL[0]+",transparent)";
+    var a=i/rays*360;r.animate([{transform:"rotate("+a+"deg)",opacity:.9},{transform:"rotate("+(a+60)+"deg)",opacity:0}],{duration:dur,easing:"linear",fill:"forwards"});b.appendChild(r)}
+  if(tier>=3)for(var k=0;k<(tier===4?3:2);k++){var c=document.createElement("div");c.className="bring";c.style.borderColor=COL[k%COL.length];
+    c.animate([{width:"10px",height:"10px",opacity:1},{width:(480+k*60)+"px",height:(480+k*60)+"px",opacity:0}],{duration:dur,easing:"ease-out",fill:"forwards"});b.appendChild(c)}
+  for(var j=0;j<cnt;j++){var ang=j/cnt*2*Math.PI,dist=R*(.75+Math.random()*.4),p=document.createElement("div");p.className="bpart";p.style.width=p.style.height=ps+"px";p.style.background=COL[j%COL.length];
+    var rot=360+Math.random()*540,sc=.3+Math.random()*.4;
+    p.animate([{transform:"translate(0,0) rotate(0) scale(1.2)",opacity:1},{transform:"translate("+Math.cos(ang)*dist+"px,"+Math.sin(ang)*dist+"px) rotate("+rot+"deg) scale("+sc+")",opacity:0}],{duration:dur,easing:"ease-out",fill:"forwards"});b.appendChild(p)}
+  setTimeout(function(){b.remove()},dur+100);
+}
+function playOpening(cf,mode,cards,done){
+  var img=cf.prefix+"pack_front";
+  if(mode===0)cutScene(img,cards[0].art,0,function(){flipScene(cards,cf,done)});
+  else cutScene(img,null,mode===1?cf.ppb:cf.ppb*cf.bpc,function(){flipScene(cards,cf,done)});
+}
 function openSetPack(cf,mode){
   var cost=packCost(cf,mode);if(S.yen<cost)return;
   S.yen-=cost;var cards=genPacks(cf,mode),lost=0,counts={};
@@ -375,7 +580,7 @@ function openSetPack(cf,mode){
     counts[c.rarity]=(counts[c.rarity]||0)+1;
   });
   save();renderYen();
-  lastPack={set:cf.prefix,mode:mode,cards:cards,lost:lost,counts:counts,cost:cost};renderPack();
+  var res={set:cf.prefix,mode:mode,cards:cards,lost:lost,counts:counts,cost:cost};lastPack=null;playOpening(cf,mode,cards,function(){lastPack=res;renderPack()});
 }
 function renderPackResult(el,o){
   var order=["MUR","SAR","MA","SR_Pokemon","SR_Goods","RR","AR","MIR","R","U","C"];
@@ -513,7 +718,7 @@ function renderSD100Pack(el){
   var info=document.createElement("div");info.style.flex="1 1 240px";
   info.innerHTML="<h2 style='margin:0 0 4px'>スタートデッキ100</h2><p class='muted' style='margin:0 0 10px'>"+PRICE+"円。101種類のデッキから、全部同じ確率で1つ出ます（シークレットも同じ確率）。出たデッキは持ち物に入り、デッキとして保存されて「いま使うデッキ」になります。</p>";
   var row=document.createElement("div");row.className="row";
-  var b=document.createElement("button");b.className="btn";b.textContent="開ける（"+PRICE+"円）";b.disabled=S.yen<PRICE;b.onclick=openPack;
+  var b=document.createElement("button");b.className="btn";b.textContent="開ける（"+PRICE+"円）";b.disabled=S.yen<PRICE;b.onclick=function(){if(S.yen<PRICE)return;cutScene("SD100_pack_front",null,0,openPack)};
   var g=document.createElement("button");g.className="btn sub";g.textContent="テスト用 +10,000円";g.onclick=function(){S.yen+=10000;save();renderYen();renderPack()};
   row.appendChild(b);row.appendChild(g);info.appendChild(row);
   box.appendChild(pk);box.appendChild(info);el.appendChild(box);
