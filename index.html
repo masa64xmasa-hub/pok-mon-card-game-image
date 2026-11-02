@@ -54,6 +54,83 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
 .pkt{width:92px}.pkt.big{width:130px}.pkb{font-size:.7rem;line-height:1.3;margin-top:2px}
 .bt{display:grid;gap:10px}.hg{grid-template-columns:repeat(auto-fill,minmax(70px,1fr))}
 .btlog{max-height:220px;overflow:auto;font-size:.8rem}
+
+/* ===== Swift風 ===== */
+body{background:#f2f2f7}
+header.top{background:transparent;border:0;position:static;justify-content:center;padding:10px 12px 4px;position:relative}
+header.top h1{display:none}
+header.top .yen{position:absolute;right:max(12px,env(safe-area-inset-right));top:14px;font-size:.8rem;color:var(--mute)}
+nav{background:#fff;border-radius:999px;padding:6px 8px;gap:2px;box-shadow:0 1px 6px rgba(0,0,0,.08);flex-wrap:nowrap;overflow:auto;max-width:100%}
+nav button{border:0;background:transparent;border-radius:999px;padding:8px 18px;font-size:1rem;white-space:nowrap}
+nav button[aria-selected=true]{background:#e9e9ec;color:#1b1b1f;font-weight:500}
+main.wide{max-width:none;padding:0}
+@media (prefers-color-scheme:dark){body{background:#000}nav{background:#1c1c1e}nav button[aria-selected=true]{background:#3a3a3c;color:#fff}}
+.bf{display:grid;width:100%;overflow:hidden;background:#f2f2f7;color:#111}
+@media (prefers-color-scheme:dark){.bf{background:#000;color:#eee}}
+.bmain{display:flex;flex-direction:column;min-width:0;height:100%}
+.field{flex:1;min-height:0;display:flex;flex-direction:column;gap:4px}
+.band{display:flex;align-items:flex-start;gap:12px;padding:0 12px;overflow:hidden}
+.bench{flex:1;display:flex;align-items:flex-start;min-width:0}
+.active{display:flex}
+.ptile{display:flex;flex-direction:column;align-items:center;flex:none;cursor:pointer;margin:0 0 0 0;padding:0 3px;touch-action:manipulation}
+.pcard{position:relative;border-radius:6px}
+.pcard .cimg{border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.pcard.hl,.ptile.hl .pcard{outline:4px solid #34c759;border-radius:6px}
+.ptile.hl .pcard{outline:4px solid #34c759}
+.php{font-size:11px;font-weight:700;margin-top:2px}
+.hpbar{height:4px;background:#d8d8dc;border-radius:2px;margin:2px 0}
+.hpbar i{display:block;height:100%;background:#f5c400;border-radius:2px;transition:width .5s}
+.ecirc{display:flex;gap:2px;min-height:16px}
+.ecirc span{width:16px;height:16px;border-radius:50%;color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.pex{font-size:10px;color:#8a8a90;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;min-height:14px}
+.eslot{border:1px dashed rgba(128,128,128,.5);border-radius:6px;flex:none}
+.strip{height:24px;display:flex;align-items:center;justify-content:space-between;padding:0 16px}
+.chip{font:inherit;font-size:.75rem;background:rgba(255,149,0,.25);border:0;border-radius:8px;padding:3px 8px;cursor:pointer;color:inherit}
+.chip .lnk{color:#0a7aff}
+.dhint{display:none;font-size:.7rem;color:#34c759}.dhint.on{display:inline}
+.hand{display:flex;justify-content:center;align-items:center;gap:4px;background:rgba(120,120,128,.12);flex:none;padding:5px 12px;overflow:hidden}
+.hcard{position:relative;flex:none;border-radius:6px;opacity:.55;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.hcard.usable{opacity:1;outline:2px solid #34c759}
+.hcard.dragging{opacity:.25}
+.hcard .cimg{border-radius:6px}
+.hcard img,.fly img{pointer-events:none;-webkit-user-drag:none}
+.fly{position:fixed;width:90px;transform:translate(-50%,-50%);z-index:1000;pointer-events:none;filter:drop-shadow(0 6px 8px rgba(0,0,0,.4))}
+.side{background:#f2f2f7;display:flex;flex-direction:column;gap:8px;padding:8px;min-width:0;overflow:hidden;border-left:1px solid rgba(128,128,128,.15)}
+@media (prefers-color-scheme:dark){.side{background:#1c1c1e}}
+.turn{text-align:center;font-weight:700;font-size:1.15rem;margin-top:6px}
+.who{text-align:center;font-weight:700;font-size:.95rem}.who.me{color:#34c759}.who.op{color:#ff9500}
+.info{background:#fff;border-radius:8px;padding:6px;font-size:.72rem;line-height:1.5}
+.info b{font-size:.8rem}
+@media (prefers-color-scheme:dark){.info{background:#2c2c2e}}
+.endbtn{font:inherit;font-weight:700;color:#fff;background:#a2754e;border:0;border-radius:10px;padding:10px;font-size:.95rem;cursor:pointer}
+.endbtn:disabled{background:#999;opacity:.7;cursor:default}
+.lr{display:flex;justify-content:space-between;font-size:.82rem}
+.lnkbtn{font:inherit;background:none;border:0;color:#0a7aff;cursor:pointer;padding:0}.lnkbtn.red{color:#ff3b30}
+.slog{font-size:10px;color:#8a8a90;white-space:pre-wrap;word-break:break-all}
+.shint{font-size:10px;color:#8a8a90;text-align:center}
+.ovl{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+.zoom{background:var(--card);color:var(--fg);border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.4);padding:14px;display:flex;gap:16px;max-width:min(94vw,860px);max-height:92vh;overflow:auto;align-items:flex-start}
+.zimg{width:min(46vh,40vw,340px);flex:none}.zimg.small{width:min(30vh,30vw,200px)}
+.zimg .cimg{border-radius:10px}
+.ztext{min-width:200px;flex:1;font-size:.85rem}
+.ztext p{margin:.5em 0}
+.mlist{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.mbtn{font:inherit;text-align:left;padding:9px 10px;border-radius:8px;border:0;background:rgba(10,122,255,.15);color:inherit;cursor:pointer}
+.mbtn.at{background:rgba(255,59,48,.18)}.mbtn.ab{background:rgba(255,149,0,.22)}.mbtn.rt{background:rgba(52,199,89,.2)}.mbtn.sub{background:rgba(120,120,128,.15)}
+.logbox .fulllog{max-height:70vh;overflow:auto;font-size:.8rem;margin-top:6px;min-width:min(80vw,460px)}
+@media (max-width:640px){.zoom{flex-direction:column;align-items:center}.zimg{width:min(50vw,220px)}}
+.toast{position:fixed;left:50%;bottom:26%;transform:translateX(-50%);background:rgba(0,0,0,.8);color:#fff;padding:8px 16px;border-radius:10px;z-index:900}
+.banner{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);background:rgba(0,0,0,.7);color:#fff;font-size:1.9rem;font-weight:800;padding:12px 30px;border-radius:16px;z-index:900;pointer-events:none;animation:bn 1.6s ease both}
+@keyframes bn{0%{opacity:0;transform:translate(-50%,-50%) scale(.6)}15%{opacity:1;transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0}}
+.hitpop{position:absolute;left:0;right:0;top:35%;text-align:center;font-size:22px;font-weight:800;text-shadow:0 0 2px #fff,0 0 2px #fff;animation:hp 1.1s ease-out both;pointer-events:none;z-index:3}
+@keyframes hp{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-40px)}}
+.flash{position:absolute;inset:0;background:rgba(255,0,0,.55);border-radius:6px;animation:fl .6s ease-out both;pointer-events:none}
+@keyframes fl{to{opacity:0}}
+.burst{position:absolute;inset:0;border:5px solid #ffd60a;border-radius:8px;animation:bs 1.1s ease-out .2s both;pointer-events:none;display:flex;align-items:flex-start;justify-content:center}
+.burst span{font-weight:800;color:#ff9500;text-shadow:0 0 2px #fff,0 0 2px #fff;font-size:15px}
+@keyframes bs{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(1.4)}}
+.pcard .cimg{animation:land .5s ease both}
+@keyframes land{from{opacity:.4;transform:translateY(-8px)}to{opacity:1;transform:none}}
 </style>
 </head>
 <body>
@@ -68,7 +145,7 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
     <button data-tab="battle" aria-selected="false">対戦</button>
   </nav>
 </header>
-<main>
+<main id="mainEl">
   <section id="t-pack"></section>
   <section id="t-col" hidden></section>
   <section id="t-shop" hidden></section>
@@ -126,11 +203,11 @@ function nameOf(key){if(key.indexOf("E:")===0)return "基本"+typeName(key.slice
 // ---------- タブ ----------
 var TABS=["pack","col","shop","deck","battle"];
 function showTab(t){TABS.forEach(function(x){$("t-"+x).hidden=(x!==t)});
-  document.querySelectorAll("#nav button").forEach(function(b){b.setAttribute("aria-selected",b.dataset.tab===t?"true":"false")});
+  $("mainEl").classList.toggle("wide",t==="battle");document.querySelectorAll("#nav button").forEach(function(b){b.setAttribute("aria-selected",b.dataset.tab===t?"true":"false")});
   if(t==="pack")renderPack();if(t==="col")renderCol();if(t==="shop")renderShop();if(t==="deck")renderDeck();if(t==="battle")renderBattle();}
 document.querySelectorAll("#nav button").forEach(function(b){b.onclick=function(){showTab(b.dataset.tab)}});
 function renderYen(){$("yen").textContent="💴 "+S.yen.toLocaleString()+"円"}
-function dialog(html){$("dlgbody").innerHTML=html;var d=$("dlg");if(d.showModal)d.showModal();else d.setAttribute("open","")}
+function dialog(html){$("dlgclose").hidden=false;$("dlgbody").innerHTML=html;var d=$("dlg");if(d.showModal)d.showModal();else d.setAttribute("open","")}
 $("dlgclose").onclick=function(){$("dlg").close?$("dlg").close():$("dlg").removeAttribute("open")};
 
 // ---------- 弾ごとのパック設定（ContentView.swift の設定値どおり） ----------
@@ -634,62 +711,199 @@ function finishBattle(game,r){
 }
 var _drawQ=false;
 function draw(){if(_drawQ)return;_drawQ=true;requestAnimationFrame(function(){_drawQ=false;if(!$("t-battle").hidden)renderBattle()})}
-function pkBadge(pk){
-  var e={};pk.attachedEnergy.forEach(function(c){var k=c.energyType?typeName(c.energyType):"特";e[k]=(e[k]||0)+1});
-  var es=Object.keys(e).map(function(k){return k+"×"+e[k]}).join(" ");
-  var cond=[];pk.conditions.forEach(function(c){cond.push(PK.conditionJapaneseName(c))});
-  return "<div class='pkb'><b>"+esc(pk.name)+"</b><br>HP "+pk.remainingHP+"/"+pk.hp+(es?"<br>"+esc(es):"")+(pk.tool?"<br>🔧"+esc(pk.tool.name):"")+(cond.length?"<br><span class='warn'>"+esc(cond.join("・"))+"</span>":"")+"</div>";
+// ===== Swift風 対戦画面 =====
+var UI={seen:new WeakMap(),lastTurn:-1,drag:null};
+function slotEq(a,b){return a&&b&&a.k===b.k&&(a.k==="a"||a.i===b.i)}
+function slotAttr(s){return s.k==="a"?"a":"b"+s.i}
+function closeOvl(){var o=document.getElementById("ovl");if(o)o.remove()}
+function openOvl(node,onclose){
+  closeOvl();var o=document.createElement("div");o.id="ovl";o.className="ovl";
+  o.onclick=function(e){if(e.target===o){closeOvl();if(onclose)onclose()}};
+  o.appendChild(node);document.body.appendChild(o);return o;
 }
-function pkTile(pk,big){
-  var t=document.createElement("div");t.className="pkt"+(big?" big":"");
-  t.appendChild(imgEl(pk.top.imageName));
-  var d=document.createElement("div");d.innerHTML=pkBadge(pk);t.appendChild(d);
-  t.firstChild.onclick=function(){cardDetail(pk.top)};return t;
+function runAct(i){closeOvl();var p=B.pending;if(!p||p.type!=="action")return;B.pending=null;p.res(i)}
+function myActs(){return(B.pending&&B.pending.type==="action")?B.pending.actions:[]}
+function cardFace(c){
+  if(c.imageName)return imgEl(c.imageName);
+  var e=energyTile(c);return e;
 }
-function cardDetail(c){
-  var d=c.data,h="<h3 style='margin:0 0 6px'>"+esc(c.name)+"</h3>";
-  if(d&&d.kind==="pokemon"){h+="<p class='muted'>HP "+d.hp+"／"+typeName(d.type)+"／"+({basic:"たね",stage1:"1進化",stage2:"2進化"}[d.stage])+(d.evolvesFrom?"（"+esc(d.evolvesFrom)+"から）":"")+"</p>";
+function toast(t){var d=document.createElement("div");d.className="toast";d.textContent=t;document.body.appendChild(d);setTimeout(function(){d.remove()},1500)}
+function showBanner(t){var d=document.createElement("div");d.className="banner";d.textContent=t;document.body.appendChild(d);setTimeout(function(){d.remove()},1600)}
+function condText(pk){var a=[];pk.conditions.forEach(function(c){a.push(PK.conditionJapaneseName(c))});return a.join("・")}
+function popEl(text,color){var d=document.createElement("div");d.className="hitpop";d.style.color=color;d.textContent=text;return d}
+
+function pokeTile(pk,w,isMine,hl){
+  var t=document.createElement("div");t.className="ptile";t.style.width=(w+6)+"px";
+  var card=document.createElement("div");card.className="pcard";card.style.width=w+"px";
+  var im=imgEl(pk.top.imageName);card.appendChild(im);
+  var en=0;pk.attachedEnergy.forEach(function(){en++});
+  var prev=UI.seen.get(pk),cur={hp:pk.remainingHP,en:en,img:pk.top.imageName,dmg:pk.hp-pk.remainingHP};
+  if(prev){
+    var diff=cur.dmg-prev.dmg;
+    if(diff>0){card.appendChild(popEl("-"+diff,"#e02020"));var f=document.createElement("div");f.className="flash";card.appendChild(f)}
+    else if(diff<0)card.appendChild(popEl("+"+(-diff),"#1f9d4c"));
+    if(cur.en>prev.en)card.appendChild(popEl("⚡+"+(cur.en-prev.en),"#e08a00"));
+    else if(cur.en<prev.en)card.appendChild(popEl("⚡-"+(prev.en-cur.en),"#888"));
+    if(cur.img!==prev.img){var b=document.createElement("div");b.className="burst";b.innerHTML="<span>✨進化！</span>";card.appendChild(b)}
+  }
+  UI.seen.set(pk,cur);
+  if(hl)card.classList.add(hl);
+  t.appendChild(card);
+  var hp=document.createElement("div");hp.className="php";hp.textContent="HP "+pk.remainingHP+"/"+pk.hp;t.appendChild(hp);
+  var bar=document.createElement("div");bar.className="hpbar";bar.style.width=w+"px";bar.innerHTML="<i style='width:"+Math.max(0,Math.min(100,pk.remainingHP/Math.max(pk.hp,1)*100))+"%'></i>";t.appendChild(bar);
+  var ec=document.createElement("div");ec.className="ecirc";
+  var cnt={};pk.attachedEnergy.forEach(function(c){var k=c.energyType||"_";cnt[k]=(cnt[k]||0)+1});
+  Object.keys(cnt).forEach(function(k){var s=document.createElement("span");s.style.background=k==="_"?"#777":typeColor(k);s.textContent=cnt[k];ec.appendChild(s)});
+  t.appendChild(ec);
+  var ex=document.createElement("div");ex.className="pex";var cd=condText(pk);
+  ex.textContent=(cd?cd+" ":"")+(pk.tool?"🎒"+pk.tool.name:"")||" ";if(cd)ex.style.color="#d02020";t.appendChild(ex);
+  return t;
+}
+function zoomDetail(c,extra){
+  var box=document.createElement("div");box.className="zoom";
+  var w=document.createElement("div");w.className="zimg";w.appendChild(cardFace(c));box.appendChild(w);
+  var d=c.data,h="";
+  if(d&&d.kind==="pokemon"){h+="<b>"+esc(c.name)+"</b>　HP "+d.hp+"／"+typeName(d.type)+"／"+({basic:"たね",stage1:"1進化",stage2:"2進化"}[d.stage])+(d.evolvesFrom?"（"+esc(d.evolvesFrom)+"から）":"");
     if(d.ability)h+="<p><b>特性「"+esc(d.ability.name)+"」</b><br>"+esc(d.ability.text)+"</p>";
     d.attacks.forEach(function(a){h+="<p><b>"+esc(a.name)+"</b> "+a.cost.map(typeName).join("")+" "+(a.damage||"")+"<br>"+esc(a.text)+"</p>"});
     h+="<p class='muted'>弱点 "+(d.weakness?typeName(d.weakness):"なし")+"／抵抗力 "+(d.resistance?typeName(d.resistance)+"-30":"なし")+"／にげる "+d.retreatCost+"</p>"}
-  else if(d)h+="<p>"+esc(d.text)+"</p>";else h+="<p>基本エネルギー</p>";
-  dialog(h);
+  else if(d)h+="<b>"+esc(c.name)+"</b><p>"+esc(d.text)+"</p>";else h+="<b>基本エネルギー</b>";
+  var tx=document.createElement("div");tx.className="ztext";tx.innerHTML=h;
+  if(extra)tx.appendChild(extra);box.appendChild(tx);
+  return box;
 }
+function cardDetail(c){openOvl(zoomDetail(c))}
+function actBtn(label,cls,fn){var b=document.createElement("button");b.className="mbtn "+(cls||"");b.textContent=label;b.onclick=fn;return b}
+function uniqueBy(acts,g){var seen={},out=[];acts.forEach(function(a){var tx=g.describe(a.a,0);if(seen[tx])return;seen[tx]=1;out.push({i:a.i,tx:tx})});return out}
+function handMenu(i,c){
+  var g=B.game,list=[];myActs().forEach(function(a,k){if(a.handIndex===i)list.push({a:a,i:k})});
+  var ex=document.createElement("div");ex.className="mlist";
+  if(!list.length)ex.appendChild(Object.assign(document.createElement("div"),{className:"muted",textContent:B.pending?"いまは使えません":"相手の番です"}));
+  uniqueBy(list,g).forEach(function(u){ex.appendChild(actBtn(u.tx,"",function(){runAct(u.i)}))});
+  openOvl(zoomDetail(c,ex));
+}
+function pokeMenu(pk,slot){
+  var g=B.game,acts=myActs(),box=document.createElement("div");box.className="zoom";
+  var w=document.createElement("div");w.className="zimg small";w.appendChild(imgEl(pk.top.imageName));box.appendChild(w);
+  var tx=document.createElement("div");tx.className="ztext";
+  tx.innerHTML="<b>"+esc(pk.name)+"</b>　HP "+pk.remainingHP+"/"+pk.hp;
+  var list=document.createElement("div");list.className="mlist";
+  var ab=[],at=[],rt=[];
+  acts.forEach(function(a,k){
+    if(a.t==="useAbility"&&slotEq(a.target,slot))ab.push({a:a,i:k});
+    if(a.t==="attack"&&slot.k==="a")at.push({a:a,i:k});
+    if(a.t==="retreat"&&slot.k==="a")rt.push({a:a,i:k});
+  });
+  var d=pk.top.data;
+  if(d&&d.ability){var s=document.createElement("div");s.className="muted";s.textContent="特性「"+d.ability.name+"」"+d.ability.text;list.appendChild(s)}
+  uniqueBy(ab,g).forEach(function(u){list.appendChild(actBtn(u.tx,"ab",function(){runAct(u.i)}))});
+  uniqueBy(at,g).forEach(function(u){list.appendChild(actBtn(u.tx,"at",function(){runAct(u.i)}))});
+  uniqueBy(rt,g).forEach(function(u){list.appendChild(actBtn(u.tx,"rt",function(){runAct(u.i)}))});
+  if(!ab.length&&!at.length&&!rt.length)list.appendChild(Object.assign(document.createElement("div"),{className:"muted",textContent:B.pending?"このポケモンでできる行動はありません":"相手の番です"}));
+  list.appendChild(actBtn("カードの詳細","sub",function(){cardDetail(pk.top)}));
+  tx.appendChild(list);box.appendChild(tx);openOvl(box);
+}
+function handDragStart(ev,i,c,el){
+  var acts=myActs(),list=[];acts.forEach(function(a,k){if(a.handIndex===i)list.push({a:a,i:k})});
+  var sx=ev.clientX,sy=ev.clientY,started=false,fly=null;
+  function targetsOf(){var s=[];list.forEach(function(x){if(x.a.target)s.push(slotAttr(x.a.target))});return s}
+  function move(e){
+    if(!started&&Math.hypot(e.clientX-sx,e.clientY-sy)>10&&list.length){
+      started=true;el.classList.add("dragging");
+      fly=document.createElement("div");fly.className="fly";fly.appendChild(cardFace(c));document.body.appendChild(fly);
+      var ts=targetsOf();document.querySelectorAll("#t-battle .mine [data-slot]").forEach(function(n){if(ts.indexOf(n.dataset.slot)>=0)n.classList.add("hl")});
+      var hint=document.getElementById("bhint");if(hint)hint.classList.add("on");
+    }
+    if(fly){fly.style.left=e.clientX+"px";fly.style.top=e.clientY+"px"}
+  }
+  function up(e){
+    window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",up);window.removeEventListener("pointercancel",up);
+    document.querySelectorAll(".hl").forEach(function(n){n.classList.remove("hl")});
+    var hint=document.getElementById("bhint");if(hint)hint.classList.remove("on");
+    if(fly)fly.remove();el.classList.remove("dragging");
+    if(!started){handMenu(i,c);return}
+    var under=document.elementFromPoint(e.clientX,e.clientY),slotEl=under&&under.closest("#t-battle .mine [data-slot]");
+    var hit=null;
+    if(slotEl){list.forEach(function(x){if(!hit&&x.a.target&&slotAttr(x.a.target)===slotEl.dataset.slot)hit=x})}
+    if(!hit&&under&&under.closest("#t-battle .field")){list.forEach(function(x){if(!hit&&!x.a.target)hit=x})}
+    if(hit)runAct(hit.i);
+    else if(under&&under.closest("#t-battle .field")){
+      // ベンチ等の空きにエネルギー等を落としたときは、メニューを出す
+      handMenu(i,c)}
+  }
+  window.addEventListener("pointermove",move);window.addEventListener("pointerup",up);window.addEventListener("pointercancel",up);
+}
+
 function renderBattleScreen(){
   var el=$("t-battle"),g=B.game;el.innerHTML="";
-  if(!g){el.innerHTML="";return}
-  var wrap=document.createElement("div");wrap.className="bt";
-  function side(p,label){
-    var s=g.players[p],box=document.createElement("div");box.className="panel";
-    var head=document.createElement("div");head.className="muted";head.textContent=label+"　山札 "+s.deck.length+"／サイド "+s.prizes.length+"／トラッシュ "+s.discard.length+(p===1?"／手札 "+s.hand.length:"");box.appendChild(head);
-    var row=document.createElement("div");row.className="row";row.style.alignItems="flex-start";
-    if(s.active)row.appendChild(pkTile(s.active,true));
-    var bn=document.createElement("div");bn.className="row";bn.style.alignItems="flex-start";s.bench.forEach(function(pk){bn.appendChild(pkTile(pk,false))});row.appendChild(bn);box.appendChild(row);return box;
+  if(!g)return;
+  var H=Math.max(window.innerHeight-76,420),W=Math.max(el.clientWidth||window.innerWidth,320);
+  var narrow=W<760,sideW=narrow?128:Math.min(210,Math.max(150,W*0.16));
+  var mainW=W-sideW,handH=Math.round(H*0.24),bandH=Math.floor((H-handH-26)/2);
+  var activeW=Math.floor(Math.max(50,Math.min((bandH-62)*0.716,mainW*0.2)));
+  var benchW=Math.floor(Math.max(36,Math.min(activeW*0.9,(mainW-activeW-60)/5-8)));
+  var me=g.players[0],op=g.players[1],myTurn=g.currentPlayer===0;
+  if(g.turnNumber!==UI.lastTurn){UI.lastTurn=g.turnNumber;showBanner("ターン"+g.turnNumber+"　"+(myTurn?"あなたの番":"相手の番"))}
+  var acts=myActs(),canAct=acts.length>0;
+
+  var root=document.createElement("div");root.className="bf";root.style.height=H+"px";root.style.gridTemplateColumns="1fr "+sideW+"px";
+  var mainc=document.createElement("div");mainc.className="bmain";
+  var field=document.createElement("div");field.className="field";
+
+  function empty(w){var d=document.createElement("div");d.className="eslot";d.style.width=w+"px";d.style.height=(w/0.716)+"px";d.style.margin="0 3px";return d}
+  function band(s,isMine){
+    var b=document.createElement("div");b.className="band"+(isMine?" mine":"");b.style.height=bandH+"px";
+    var bench=document.createElement("div");bench.className="bench";
+    s.bench.forEach(function(pk,i){
+      var t=pokeTile(pk,benchW,isMine);t.dataset.slot="b"+i;
+      t.onclick=function(){if(isMine)pokeMenu(pk,{k:"b",i:i});else cardDetail(pk.top)};bench.appendChild(t)});
+    for(var k=s.bench.length;k<5;k++)bench.appendChild(empty(benchW));
+    b.appendChild(bench);
+    var ac=document.createElement("div");ac.className="active";
+    if(s.active){var t=pokeTile(s.active,activeW,isMine);t.dataset.slot="a";t.onclick=function(){if(isMine)pokeMenu(s.active,{k:"a"});else cardDetail(s.active.top)};ac.appendChild(t)}
+    else ac.appendChild(empty(activeW));
+    b.appendChild(ac);return b;
   }
-  wrap.appendChild(side(1,"相手"));
-  if(g.stadiumCard){var st=document.createElement("div");st.className="muted";st.textContent="スタジアム: "+g.stadiumCard.name;wrap.appendChild(st)}
-  wrap.appendChild(side(0,"あなた"));
-  var me=g.players[0];
-  var hand=document.createElement("div");hand.className="panel";hand.innerHTML="<div class='muted'>手札 "+me.hand.length+"枚（タップで内容）</div>";
-  var hg=document.createElement("div");hg.className="grid hg";me.hand.forEach(function(c){var t=document.createElement("div");t.className="tile";t.appendChild(imgEl(c.imageName||"E:"+c.energyType));if(c.energyType&&!c.imageName){t.innerHTML="";var e=document.createElement("div");e.className="energy";e.style.background=typeColor(c.energyType);e.innerHTML="<i></i>基本"+typeName(c.energyType)+"<br>エネルギー";t.appendChild(e)}t.onclick=function(){cardDetail(c)};hg.appendChild(t)});hand.appendChild(hg);wrap.appendChild(hand);
-  var act=document.createElement("div");act.className="panel";act.id="bt-act";wrap.appendChild(act);
-  if(B.pending&&B.pending.type==="action")renderActions(act,g);
-  else{act.innerHTML="<p class='muted'>"+(B.pending?"選んでください…":"相手の番です…")+"</p>"}
-  var lg=document.createElement("details");lg.className="panel";lg.open=!!B.logOpen;lg.ontoggle=function(){B.logOpen=lg.open};
-  lg.innerHTML="<summary>ログ（"+B.log.length+"）</summary><div class='btlog'>"+B.log.slice(-60).map(esc).join("<br>")+"</div>";wrap.appendChild(lg);
-  var ff=document.createElement("button");ff.className="btn sm sub";ff.textContent="投了する";ff.onclick=forfeit;wrap.appendChild(ff);
-  el.appendChild(wrap);
-  var bl=el.querySelector(".btlog");if(bl)bl.scrollTop=bl.scrollHeight;
+  field.appendChild(band(op,false));
+  var strip=document.createElement("div");strip.className="strip";
+  if(g.stadiumCard){var chip=document.createElement("button");chip.className="chip";chip.innerHTML="🏟 "+esc(g.stadiumCard.name)+" <span class='muted'>"+(g.stadiumOwner===0?"（自分）":"（相手）")+"</span> <span class='lnk'>ⓘ 効果を見る</span>";chip.onclick=function(){cardDetail(g.stadiumCard)};strip.appendChild(chip)}
+  else strip.innerHTML="<span class='muted' style='font-size:.7rem'>スタジアムなし</span>";
+  var hint=document.createElement("span");hint.id="bhint";hint.className="dhint";hint.textContent="光っているポケモンの上、または盤面にドロップ";strip.appendChild(hint);
+  field.appendChild(strip);
+  field.appendChild(band(me,true));
+  mainc.appendChild(field);
+
+  // 手札
+  var hand=document.createElement("div");hand.className="hand";hand.style.height=handH+"px";
+  var n=Math.max(me.hand.length,1),gap=4,cw=Math.floor(Math.max(30,Math.min((mainW-24-gap*(n-1))/n,(handH-10)*0.716,110)));
+  me.hand.forEach(function(c,i){
+    var usable=false;acts.forEach(function(a){if(a.handIndex===i)usable=true});
+    var hc=document.createElement("div");hc.className="hcard"+(usable?" usable":"");hc.style.width=cw+"px";
+    hc.appendChild(cardFace(c));
+    hc.onpointerdown=function(ev){if(ev.button>0)return;ev.preventDefault();handDragStart(ev,i,c,hc)};
+    hand.appendChild(hc);
+  });
+  mainc.appendChild(hand);root.appendChild(mainc);
+
+  // サイドバー
+  var sb=document.createElement("div");sb.className="side";
+  function info(title,s,showHand){return "<div class='info'><b>"+title+"</b><br>手札 "+s.hand.length+"　山札 "+s.deck.length+"<br>サイド "+s.prizes.length+"　トラッシュ "+s.discard.length+"</div>"}
+  sb.innerHTML="<div class='turn'>ターン"+g.turnNumber+"</div><div class='who "+(myTurn?"me":"op")+"'>"+(myTurn?"あなたの番":"相手の番")+"</div>"+info("相手",op)+info("あなた",me);
+  var endIdx=-1;acts.forEach(function(a,k){if(a.t==="endTurn")endIdx=k});
+  var eb=document.createElement("button");eb.className="endbtn";eb.textContent="ターン終了";eb.disabled=endIdx<0;eb.onclick=function(){runAct(endIdx)};sb.appendChild(eb);
+  var stIdx=-1;acts.forEach(function(a,k){if(a.t==="useStadium")stIdx=k});
+  if(stIdx>=0){var sbn=document.createElement("button");sbn.className="mbtn sub";sbn.textContent="スタジアムの効果を使う";sbn.onclick=function(){runAct(stIdx)};sb.appendChild(sbn)}
+  var lr=document.createElement("div");lr.className="lr";
+  var lb=document.createElement("button");lb.className="lnkbtn";lb.textContent="ログ";lb.onclick=function(){
+    var bx=document.createElement("div");bx.className="zoom logbox";bx.innerHTML="<div class='ztext'><b>ログ</b><div class='fulllog'>"+B.log.slice(-200).map(esc).join("<br>")+"</div></div>";openOvl(bx);var f=bx.querySelector(".fulllog");f.scrollTop=f.scrollHeight};
+  var qb=document.createElement("button");qb.className="lnkbtn red";qb.textContent="やめる";qb.onclick=forfeit;
+  lr.appendChild(lb);lr.appendChild(qb);sb.appendChild(lr);
+  var lg=document.createElement("div");lg.className="slog";lg.textContent=B.log.slice(-6).join("\n");sb.appendChild(lg);
+  var sp=document.createElement("div");sp.style.flex="1";sb.appendChild(sp);
+  var ht=document.createElement("div");ht.className="shint";ht.innerHTML=(B.pending&&B.pending.type==="choice")?"選んでください":(canAct?"手札をドラッグして使う<br>ポケモンをタップでワザ・特性":"相手の番です…");sb.appendChild(ht);
+  root.appendChild(sb);
+  el.appendChild(root);
   if(B.pending&&B.pending.type==="choice")renderChoice(B.pending);else if($("dlg").open&&B._choiceOpen){$("dlg").close();B._choiceOpen=false}
-}
-function renderActions(box,g){
-  var acts=B.pending.actions,groups=[["attack","ワザ"],["useAbility","特性"],["playTrainer","トレーナーズ"],["evolve","進化"],["playBasic","ベンチに出す"],["attachEnergy","エネルギーをつける"],["attachTool","どうぐをつける"],["retreat","にげる"],["useStadium","スタジアム"]];
-  box.innerHTML="<b>あなたの番です。行動を選んでください</b>";
-  groups.forEach(function(gr){
-    var list=[];acts.forEach(function(a,i){if(a.t===gr[0])list.push(i)});if(!list.length)return;
-    var d=document.createElement("div");d.style.margin="6px 0";d.innerHTML="<div class='muted'>"+gr[1]+"</div>";var r=document.createElement("div");r.className="row";
-    var seen={};list.forEach(function(i){var tx=g.describe(acts[i],0);if(seen[tx])return;seen[tx]=1;var b=document.createElement("button");b.className="btn sm"+(gr[0]==="attack"?"":" sub");b.textContent=g.describe(acts[i],0);b.onclick=function(){var p=B.pending;B.pending=null;p.res(i)};r.appendChild(b)});d.appendChild(r);box.appendChild(d)});
-  var e=document.createElement("button");e.className="btn";e.style.marginTop="8px";e.textContent="ターンを終える";e.onclick=function(){var p=B.pending;B.pending=null;p.res(acts.length-1)};box.appendChild(e);
 }
 function renderChoice(pd){
   var req=pd.req,h="<h3 style='margin:0 0 8px'>"+esc(req.prompt)+"</h3><div id='ch' class='row' style='flex-direction:column;align-items:stretch'></div>";
@@ -702,7 +916,7 @@ function renderChoice(pd){
     box.parentNode.insertBefore(g,box);
   }else req.options.forEach(function(o,i){var b=document.createElement("button");b.className="btn sm sub";b.style.textAlign="left";b.textContent=o;b.onclick=function(){done(i)};box.appendChild(b)});
   if(req.allowsNone){var n=document.createElement("button");n.className="btn sm";n.textContent="選ばない";n.onclick=function(){done(null)};box.appendChild(n)}
-  var d=$("dlg");d.oncancel=function(ev){ev.preventDefault()};
+  var d=$("dlg");d.oncancel=function(ev){ev.preventDefault()};$("dlgclose").hidden=true;
   if(!d.open){B._choiceOpen=true;if(d.showModal)d.showModal();else d.setAttribute("open","")}
 }
 function energyTile(c){var e=document.createElement("div");e.className="energy";e.style.background=typeColor(c.energyType);e.innerHTML="<i></i>基本"+typeName(c.energyType)+"<br>エネルギー";return e}
