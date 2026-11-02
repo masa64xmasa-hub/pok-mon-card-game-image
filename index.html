@@ -452,9 +452,9 @@ function pkOverlay(){
   var o=document.createElement("div");o.id="pko";o.className="pko";document.body.appendChild(o);document.body.style.overflow="hidden";return o;
 }
 function pkClose(){var o=document.getElementById("pko");if(o)o.remove();document.body.style.overflow=""}
-function packStage(name,H){
+function packStage(name,H,tear){
   var st=document.createElement("div");st.className="pkstage";st.style.height=H+"px";st.style.width=Math.round(H*0.66)+"px";
-  var TEAR=75/460;
+  var TEAR=tear||75/460;
   function layer(css){
     var l=document.createElement("div");l.className="pklayer";l.style.clipPath=css;
     var im=new Image();im.draggable=false;var k=0;
@@ -482,13 +482,13 @@ function cardFront(art,cw){
   d.appendChild(imgEl(art,true));return d;
 }
 // 1パックをなぞって切る → 空パックを下へ払う。firstArt があれば中から1枚目が出てくる
-function cutScene(imgName,firstArt,rapid,done){
+function cutScene(imgName,firstArt,rapid,done,tear){
   var o=pkOverlay(),H=Math.min(460,Math.round(window.innerHeight*0.56));
   var cw=Math.min(310,Math.round(H*0.716*0.95));
   var wrap=document.createElement("div");wrap.className="pkwrap";o.appendChild(wrap);
   var spacer=document.createElement("div");spacer.style.flex="1";wrap.appendChild(spacer);
   var hint=document.createElement("div");hint.className="pkhint";
-  var P=packStage(imgName,H);
+  var P=packStage(imgName,H,tear);
   var holder=document.createElement("div");holder.className="pkholder";holder.style.height=H+"px";
   if(rapid){
     var title=document.createElement("div");title.className="pktitle";wrap.insertBefore(title,spacer);
@@ -764,7 +764,14 @@ function renderSD100Pack(el){
   var info=document.createElement("div");info.style.flex="1 1 240px";
   info.innerHTML="<h2 style='margin:0 0 4px'>スタートデッキ100</h2><p class='muted' style='margin:0 0 10px'>"+PRICE+"円。101種類のデッキから、全部同じ確率で1つ出ます（シークレットも同じ確率）。出たデッキは持ち物に入り、デッキとして保存されて「いま使うデッキ」になります。</p>";
   var row=document.createElement("div");row.className="row";
-  var b=document.createElement("button");b.className="btn";b.textContent="開ける（"+PRICE+"円）";b.disabled=S.yen<PRICE;b.onclick=function(){if(S.yen<PRICE)return;cutScene("SD100_pack_front",null,0,openPack)};
+  var b=document.createElement("button");b.className="btn";b.textContent="開ける（"+PRICE+"円）";b.disabled=S.yen<PRICE;b.onclick=function(){if(S.yen<PRICE)return;
+    var o=openPack(true);if(!o){return}
+    var CODE=["C","MIR","RR","AR","SR_Goods","SR_Pokemon","MA","SAR","MUR"];
+    var cards=Object.keys(o.items).filter(function(k){return k.indexOf("E:")!==0&&ART[k]}).sort(function(a,b){return rarityRank(a)-rarityRank(b)||(a<b?-1:1)})
+      .map(function(k){var i=rarityIdx(k);return{art:k,rarity:CODE[i<0?0:i]}});
+    // 上の台紙（1枚の部分）を切ると、中からデッキのカードが出てくる
+    cutScene("SD100_pack_front",cards.length?cards[cards.length-1].art:null,0,function(){
+      if(cards.length)flipScene(cards,null,function(){renderPack()});else renderPack()},330/1593)};
   var g=document.createElement("button");g.className="btn sub";g.textContent="テスト用 +10,000円";g.onclick=function(){S.yen+=10000;save();renderYen();renderPack()};
   row.appendChild(b);row.appendChild(g);info.appendChild(row);
   box.appendChild(pk);box.appendChild(info);el.appendChild(box);
@@ -789,7 +796,7 @@ function deckItems(dk){
   return items;
 }
 function mirrorImage(id){var n=id-4000;if(n<=0)return null;var mi=DATA.mirror;for(var k in mi)if(mi[k]===n)return "SD100_M_"+k;return null}
-function openPack(){
+function openPack(defer){
   if(S.yen<PRICE)return;
   var dk=DATA.decks[Math.floor(Math.random()*DATA.decks.length)];
   S.yen-=PRICE;
@@ -798,7 +805,9 @@ function openPack(){
   S.decks.push({name:dk.name,items:items});S.current=S.decks.length-1;
   var missing=0;(dk.missing||[]).forEach(function(m){missing+=m.count});
   lastOpen={name:dk.name,no:dk.no,secret:!!dk.secret,items:items,missing:missing,missingList:(dk.missing||[]).map(function(m){return m.name+" ×"+m.count})};
-  save();renderYen();renderPack();
+  save();renderYen();
+  if(!defer)renderPack();
+  return lastOpen;
 }
 function sortedKeys(items){
   return Object.keys(items).sort(function(a,b){var A=keyOrder(a),B=keyOrder(b);return A-B||(a<b?-1:1)});
