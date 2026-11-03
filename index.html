@@ -798,7 +798,7 @@ function renderSD100Pack(el){
   var box=document.createElement("div");box.className="panel packbox";
   var pk=document.createElement("div");pk.className="pk";pk.appendChild(imgEl("SD100_pack_front",true));
   var info=document.createElement("div");info.style.flex="1 1 240px";
-  info.innerHTML="<h2 style='margin:0 0 4px'>スタートデッキ100</h2><p class='muted' style='margin:0 0 10px'>"+PRICE+"円。101種類のデッキから、全部同じ確率で1つ出ます（シークレットも同じ確率）。出たデッキは持ち物に入り、デッキとして保存されて「いま使うデッキ」になります。</p>";
+  info.innerHTML="<h2 style='margin:0 0 4px'>スタートデッキ100</h2><p class='muted' style='margin:0 0 10px'>"+PRICE+"円。101種類のデッキから、全部同じ確率で1つ出ます（シークレットも同じ確率）。出たデッキのカードは持ち物に入ります（バラバラ）。開けたあとに、デッキとして保存するか選べます。</p>";
   var row=document.createElement("div");row.className="row";
   var b=document.createElement("button");b.className="btn";b.textContent="開ける（"+PRICE+"円）";b.disabled=S.yen<PRICE;b.onclick=function(){if(S.yen<PRICE)return;
     var o=openPack(true);if(!o){return}
@@ -838,9 +838,9 @@ function openPack(defer){
   S.yen-=PRICE;
   var items=deckItems(dk),total=0;
   Object.keys(items).forEach(function(k){total+=items[k];if(k.indexOf("E:")!==0)S.owned[k]=(S.owned[k]||0)+items[k]});
-  S.decks.push({name:dk.name,items:items});S.current=S.decks.length-1;
+  // 何も選ばなければ、カードはバラバラ（持ち物に入るだけ）。「デッキとして保存」を押すとデッキにもなる
   var missing=0;(dk.missing||[]).forEach(function(m){missing+=m.count});
-  lastOpen={name:dk.name,no:dk.no,secret:!!dk.secret,items:items,missing:missing,missingList:(dk.missing||[]).map(function(m){return m.name+" ×"+m.count})};
+  lastOpen={deckSaved:false,name:dk.name,no:dk.no,secret:!!dk.secret,items:items,missing:missing,missingList:(dk.missing||[]).map(function(m){return m.name+" ×"+m.count})};
   save();renderYen();
   if(!defer)renderPack();
   return lastOpen;
@@ -851,8 +851,19 @@ function sortedKeys(items){
 function keyOrder(k){if(k.indexOf("E:")===0)return 9e6+TYPES.map(function(t){return t[0]}).indexOf(k.slice(2));var a=ART[k];if(!a)return 8e6;if(a.kind==="e")return 9e6+20;return a.id*2+(a.mirror?1:0)}
 function renderOpened(el,o){
   var h=document.createElement("div");
-  h.innerHTML=(o.secret?"<div class='warn' style='font-size:1.1rem'>✨ シークレットデッキ！ ✨</div>":"")+"<h2 style='margin:0'>"+esc(o.name)+"</h2><p class='muted' style='margin:2px 0 10px'>デッキに保存して、「いま使うデッキ」にしました。</p>"+(o.missing?"<p class='warn'>このアプリにまだないカードが"+o.missing+"枚あり、入れませんでした（"+esc(o.missingList.join("、"))+"）。足りない分は、デッキ画面で足してください。</p>":"");
+  h.innerHTML=(o.secret?"<div class='warn' style='font-size:1.1rem'>✨ シークレットデッキ！ ✨</div>":"")+"<h2 style='margin:0'>"+esc(o.name)+"</h2><p class='muted' id='saveNote' style='margin:2px 0 6px'></p><div class='row' id='saveRow' style='margin-bottom:10px'></div>"+(o.missing?"<p class='warn'>このアプリにまだないカードが"+o.missing+"枚あり、入れませんでした（"+esc(o.missingList.join("、"))+"）。足りない分は、デッキ画面で足してください。</p>":"");
   el.appendChild(h);
+  var note=h.querySelector("#saveNote"),srow=h.querySelector("#saveRow");
+  function paint(){
+    srow.innerHTML="";
+    if(o.deckSaved){note.textContent="デッキとして保存して、「いま使うデッキ」にしました。";return}
+    note.textContent="いまはカードがバラバラの状態で持ち物に入っています（何も押さなければこのままです）。デッキとしても保存する場合は、下のボタンを押してください。";
+    var b=document.createElement("button");b.className="btn";b.textContent="デッキとして保存する";
+    b.onclick=function(){S.decks.push({name:o.name,items:Object.assign({},o.items)});S.current=S.decks.length-1;o.deckSaved=true;save();paint();toast("デッキに保存しました")};
+    var k=document.createElement("button");k.className="btn sub";k.textContent="バラバラのままにする";k.onclick=function(){srow.innerHTML="";note.textContent="カードをバラバラのまま持ち物に入れました。"};
+    srow.appendChild(b);srow.appendChild(k);
+  }
+  paint();
   var g=document.createElement("div");g.className="grid";
   sortedKeys(o.items).forEach(function(k,i){g.appendChild(tileFor(k,o.items[k],{flip:true,i:i}))});
   el.appendChild(g);
@@ -972,6 +983,23 @@ function renderBattle(){
     renderBattleSetup(el);
   });
 }
+function nm0(){return myName()}
+function rankTier(r){return r>=2200?["マスター","#c0392b"]:r>=2000?["プラチナ","#16a085"]:r>=1800?["ゴールド","#d4a017"]:r>=1600?["シルバー","#7f8c8d"]:r>=1400?["ブロンズ","#b0702f"]:["ビギナー","#5b6577"]}
+function rankPanel(nm,okOn){
+  var h="<div class='panel' style='margin-top:12px'><h2 style='margin:0 0 6px'>ランクマッチ</h2>";
+  if(!nm)return h+"<p class='warn'>ランクマッチには名前が必要です。「フレンド」タブで名前を決めてください。</p></div>";
+  var rk=FR.rank&&FR.rank.me;
+  if(rk){var t=rankTier(rk.r);
+    h+="<div class='row' style='align-items:baseline'><span style='font-size:2rem;font-weight:800'>"+rk.r+"</span><span style='font-weight:700;color:"+t[1]+"'>"+t[0]+"</span><span class='muted'>"+rk.w+"勝 "+rk.l+"敗"+(rk.d?" "+rk.d+"分":"")+(rk.pos?"　"+rk.pos+"位／"+rk.total+"人":"")+"</span></div>"}
+  else h+="<p class='muted'>"+(FR.status==="online"?"成績を読み込み中…":"サーバーに接続中…（眠っていると1分ほどかかります）")+"</p>";
+  if(B.rankNote)h+="<p class='okc' style='margin:6px 0'>前の試合: "+esc(B.rankNote)+"</p>";
+  h+="<p class='muted' style='margin:6px 0 8px'>レートの近い人と自動で組みます（最初は1500）。勝つと上がり、負けると下がります。対戦中にやめたり、戻らなかったりすると負けになります。ごほうびも出ます。いま選んでいるデッキで戦います。</p>";
+  h+="<button class='btn' id='o-ranked'"+(okOn?"":" disabled")+">ランクマッチで対戦</button>";
+  var top=FR.rank&&FR.rank.top;
+  if(top&&top.length){h+="<h3 style='margin:12px 0 4px'>ランキング</h3><table style='border-collapse:collapse;width:100%;font-size:.88rem'>";
+    top.slice(0,10).forEach(function(e,i){h+="<tr"+(e.me?" style='font-weight:700;background:var(--mirbg)'":"")+"><td style='padding:3px 6px'>"+(i+1)+"</td><td>"+esc(e.name)+"</td><td align=right>"+e.r+"</td><td align=right class='muted'>"+e.w+"勝"+e.l+"敗</td></tr>"});h+="</table>"}
+  return h+"</div>";
+}
 function renderBattleSetup(el){
   var dl=currentDeckList(),probs=dl?PK.DeckList.validate(dl):["「いま使うデッキ」がありません。パックを開けるか、ショップでデッキをもらってください。"];
   var h="<div class='panel'><h2 style='margin:0 0 6px'>対戦（あなた vs CPU）</h2>";
@@ -982,6 +1010,7 @@ function renderBattleSetup(el){
   h+="<label>CPU <select id='b-cpu'><option value='strong'>強化版</option><option value='simple'>簡単</option></select></label></div>";
   h+="<button class='btn' id='b-start'"+(probs.length?" disabled":"")+">CPUと対戦を始める</button></div>";
   var nm=myName(),okOn=!probs.length&&nm;
+  h+=rankPanel(nm,okOn);
   h+="<div class='panel' style='margin-top:12px'><h2 style='margin:0 0 6px'>オンライン対戦</h2>";
   h+=nm?"<p>あなたの名前: <b>"+esc(nm)+"</b></p>":"<p class='warn'>オンライン対戦には名前が必要です。「フレンド」タブで名前を決めてください。</p>";
   h+="<p class='muted' style='margin:0 0 8px'>ランダムマッチは同じように探している人と自動で組みます（ごほうびが出ます）。部屋を作る場合は4文字の合言葉を相手に伝えます（ごほうびなし）。いま選んでいるデッキで戦います。サーバーが眠っていると、最初の接続に1分ほどかかります。</p>";
@@ -990,6 +1019,8 @@ function renderBattleSetup(el){
   h+="<details style='margin-top:10px'><summary class='muted'>サーバーの設定</summary><div class='row' style='margin-top:6px'><input type='text' id='o-srv' style='flex:1' value='"+esc(serverBase())+"'><button class='btn sm sub' id='o-srvset'>保存</button></div></details></div>";
   el.innerHTML=h;$("b-opp").value=B.cfg.opp;$("b-cpu").value=B.cfg.cpu;
   $("b-start").onclick=function(){B.cfg.opp=$("b-opp").value;B.cfg.cpu=$("b-cpu").value;startBattle()};
+  if($("o-ranked"))$("o-ranked").onclick=function(){onlineStart("ranked")};
+  if(nm0()&&FR.status!=="online"){frConnect()}else if(FR.status==="online"&&!FR.rank){frSend({t:"rank"})}
   $("o-rand").onclick=function(){onlineStart("random")};$("o-create").onclick=function(){onlineStart("create")};
   $("o-join").onclick=function(){var c=$("o-code").value.trim().toUpperCase();if(c.length!==4){toast("合言葉は4文字です");return}onlineStart("join",c)};
   $("o-srvset").onclick=function(){lsSet("pk_server",$("o-srv").value.trim()||DEFAULT_SERVER);toast("保存しました");frDisconnect();FR.status="offline"};
@@ -1011,7 +1042,7 @@ function startBattle(){
 }
 function finishBattle(game,r){
   var me=B.me||0,online=B.online,won=r.win===me&&r.win!=null,taken=6-game.players[me].prizes.length,lost=6-game.players[1-me].prizes.length,turns=game.players[me].turnsTaken;
-  var eligible=!online||online.isRandom,total=0,lines=[];
+  var eligible=!online||online.isRandom||online.isRank,total=0,lines=[];
   if(eligible&&!B.remoteEnd){
     lines.push(["対戦したごほうび",30]);if(won)lines.push(["勝利",120]);if(taken>0)lines.push(["サイドを"+taken+"枚とった",taken*25]);
     if(won){if(turns<=7)lines.push(["スピード勝ち（7ターン以内）",60]);else if(turns<=10)lines.push(["はやい勝ち（10ターン以内）",30]);if(lost===0)lines.push(["1匹もやられずに勝利",50])}
@@ -1258,7 +1289,7 @@ function fnv(str){var h=0x811c9dc5;for(var i=0;i<str.length;i++){h^=str.charCode
 function fmtTime(ts){var d=new Date(ts);return d.getHours()+":"+("0"+d.getMinutes()).slice(-2)}
 
 // ---------- フレンド・チャット ----------
-var FR={ws:null,status:"offline",code:"",friends:[],inc:[],out:[],global:[],dms:{},view:"global",dm:null,draft:"",addDraft:"",need:"",retry:2,want:false,lastRead:{},trade:null,tradeEnd:null,tradeOffer:{},timer:null};
+var FR={ws:null,status:"offline",code:"",friends:[],inc:[],out:[],global:[],dms:{},view:"global",dm:null,draft:"",addDraft:"",need:"",retry:2,want:false,lastRead:{},trade:null,tradeEnd:null,tradeOffer:{},timer:null,rank:null};
 try{FR.lastRead=JSON.parse(lsGet("pk_lastread","{}"))||{}}catch(e){}
 function frVisible(){return !$("t-friend").hidden}
 function frDraw(){if(frVisible())renderFriends()}
@@ -1286,8 +1317,9 @@ function frMarkRead(code){FR.lastRead[code]=Date.now()+86400000*0;var m=0;(FR.dm
 function frUnread(f){return f.lastTs>(FR.lastRead[f.code]||0)}
 function frHandle(d){
   switch(d.t){
-    case"ready":FR.code=d.code;FR.retry=2;FR.status="online";frApplyState(d);FR.global=(d.global||[]);if(FR.dm)frSend({t:"history",with:FR.dm});break;
+    case"ready":frSend({t:"rank"});FR.code=d.code;FR.retry=2;FR.status="online";frApplyState(d);FR.global=(d.global||[]);if(FR.dm)frSend({t:"history",with:FR.dm});break;
     case"state":frApplyState(d);break;
+    case"rank":FR.rank=d;if(!$("t-battle").hidden&&!B.running&&!B.os)renderBattle();break;
     case"gchat":if(d.msg&&!FR.global.some(function(m){return m.n===d.msg.n&&m.code===d.msg.code})){FR.global.push(d.msg);if(FR.global.length>200)FR.global.shift()}break;
     case"dm":{var o=d.with;(FR.dms[o]=FR.dms[o]||[]).push(d.msg);if(d.msg.f!==FR.code){var f=FR.friends.filter(function(x){return x.code===o})[0];if(f)f.lastTs=Math.max(f.lastTs,d.msg.ts)}if(FR.dm===o)frMarkRead(o);break}
     case"history":FR.dms[d.with]=d.msgs||[];if(FR.dm===d.with)frMarkRead(d.with);break;
@@ -1465,12 +1497,13 @@ function frTradeView(){
 function OnlineSession(){
   this.phase="idle";this.room="";this.token="";this.seat=0;this.isRandom=false;this.status=null;this.error=null;
   this.tx=[];this.rx=0;this.q=[];this.waiter=null;this.terminal=null;this.ended=false;
-  this.ws=null;this.ready=false;this.haveRoom=false;this.first=null;this.deadline=0;this.gen=0;this.timer=null;
+  this.isRank=false;this.opp=null;this.rdone=null;this.onRdone=null;this.ws=null;this.ready=false;this.haveRoom=false;this.first=null;this.deadline=0;this.gen=0;this.timer=null;
   this.onChange=function(){};this.onEnd=null;this.onStatus=null;
 }
 OnlineSession.prototype.setStatus=function(t){this.status=t;if(this.onStatus)this.onStatus(t);this.onChange()};
 OnlineSession.prototype.create=function(){this.phase="connecting";this.setStatus("サーバーに接続中…（しばらく使っていないと、最初の接続に1分ほどかかることがあります）");this.first={t:"create",ver:1};this.open()};
 OnlineSession.prototype.matchmake=function(){this.phase="connecting";this.isRandom=true;this.setStatus("サーバーに接続中…（しばらく使っていないと、最初の接続に1分ほどかかることがあります）");this.first={t:"queue",ver:1};this.open()};
+OnlineSession.prototype.ranked=function(){this.phase="connecting";this.isRank=true;this.setStatus("サーバーに接続中…（しばらく使っていないと、最初の接続に1分ほどかかることがあります）");this.first={t:"rqueue",ver:1,id:deviceID(),name:myName()};this.open()};
 OnlineSession.prototype.join=function(code){this.phase="connecting";this.setStatus("サーバーに接続中…（しばらく使っていないと、最初の接続に1分ほどかかることがあります）");this.first={t:"join",room:code.toUpperCase(),ver:1};this.open()};
 OnlineSession.prototype.open=function(){
   var self=this,gen=++this.gen;this.ready=false;wakeServer();
@@ -1480,7 +1513,7 @@ OnlineSession.prototype.open=function(){
     if(self.haveRoom)ws.send(JSON.stringify({t:"rejoin",room:self.room,token:self.token,rx:self.rx}));
     else if(self.first)ws.send(JSON.stringify(self.first));
     if(!self.timer)self.timer=setInterval(function(){if(!self.ended&&self.ready&&self.ws&&self.ws.readyState===1)self.ws.send('{"t":"ping"}')},15000)};
-  ws.onmessage=function(ev){if(gen!==self.gen||self.ended)return;self.handle(ev.data)};
+  ws.onmessage=function(ev){if(gen!==self.gen)return;self.handle(ev.data)};
   ws.onclose=function(){if(gen!==self.gen)return;self.socketFailed()};
   ws.onerror=function(){};
 };
@@ -1497,10 +1530,13 @@ OnlineSession.prototype.failBefore=function(m){this.phase="failed";this.error=m;
 OnlineSession.prototype.shutdownSocket=function(){clearInterval(this.timer);this.timer=null;this.gen++;try{this.ws&&this.ws.close()}catch(e){}this.ws=null};
 OnlineSession.prototype.handle=function(text){
   var m;try{m=JSON.parse(text)}catch(e){return}
+  if(this.ended&&m.t!=="rdone")return;
   switch(m.t){
+    case"opp":this.opp={name:m.name,rating:m.rating};this.onChange();break;
+    case"rdone":this.rdone=m;if(this.onRdone)this.onRdone(m);break;
     case"created":this.haveRoom=true;this.room=m.room;this.token=m.token;this.seat=m.seat|0;this.phase="waiting";this.setStatus(this.isRandom?"対戦相手を探しています…":"相手が入るのを待っています…");break;
     case"joined":this.haveRoom=true;this.room=m.room;this.token=m.token;this.seat=m.seat|0;this.phase="waiting";this.setStatus("接続しました");break;
-    case"queued":this.phase="waiting";this.setStatus("対戦相手を探しています…（同じように探している人と自動で組みます）");break;
+    case"queued":this.phase="waiting";this.setStatus(this.isRank?"ランクマッチの相手を探しています…（レートの近い人と組みます。待つほど範囲が広がります）":"対戦相手を探しています…（同じように探している人と自動で組みます）");break;
     case"ready":this.phase="ready";this.setStatus(null);break;
     case"rejoined":{this.deadline=0;var ack=m.ack|0;for(var i=ack;i<this.tx.length;i++)this.rawSend(this.tx[i]);this.setStatus(m.peerOnline===false?"相手の接続が切れています…":null);break}
     case"peer":this.setStatus(m.online===false?"相手の接続が切れています…（最大90秒待ちます）":null);break;
@@ -1522,9 +1558,10 @@ OnlineSession.prototype.leave=function(){
   if(this.ended)return;if(this.ready)this.rawSend({t:"leave"});
   var self=this;this.ended=true;this.terminal={ended:"selfLeft"};
   if(this.waiter){var w=this.waiter;this.waiter=null;w(this.terminal)}
-  setTimeout(function(){self.shutdownSocket()},1000);
+  setTimeout(function(){self.shutdownSocket()},this.isRank?6000:1000);
 };
-OnlineSession.prototype.close=function(){var self=this;if(this.ended)return;this.ended=true;this.terminal={ended:"selfLeft"};setTimeout(function(){self.shutdownSocket()},3000)};
+OnlineSession.prototype.close=function(){var self=this;if(this.ended)return;this.ended=true;this.terminal={ended:"selfLeft"};setTimeout(function(){self.shutdownSocket()},this.isRank?15000:3000)};
+OnlineSession.prototype.report=function(r){if(this.ready)this.rawSend({t:"rresult",r:r})};
 
 function syncHash(g){
   var h=0x811c9dc5;function mix(v){h^=(v|0);h=Math.imul(h,16777619)>>>0}
@@ -1550,7 +1587,8 @@ function onlineStart(mode,code){
   var s=new OnlineSession();B.os=s;B.osCode="";
   s.onChange=function(){if(!B.running&&!$("t-battle").hidden)renderBattle();
     if(s.phase==="ready"&&!s._fired){s._fired=true;onlineBegin(s,dl)}};
-  if(mode==="random")s.matchmake();else if(mode==="create")s.create();else s.join(code);
+  if(mode==="ranked"){B.rankNote=null;s.isRank=true;s.onRdone=function(d){B.rankNote=d.ok?"レート "+d.before+" → "+d.rating+"（"+(d.delta>=0?"+":"")+d.delta+"）　"+d.w+"勝"+d.l+"敗"+(d.d?d.d+"分":""):d.m;if(FR.status==="online")frSend({t:"rank"});draw()};s.ranked()}
+  else if(mode==="random")s.matchmake();else if(mode==="create")s.create();else s.join(code);
   renderBattle();
 }
 function onlineWait(el){
@@ -1558,7 +1596,8 @@ function onlineWait(el){
   var h="<div class='panel' style='text-align:center'><h2 style='margin:0 0 8px'>オンライン対戦</h2>";
   if(s.phase==="failed")h+="<p class='warn'>"+esc(s.error||"つながりませんでした")+"</p>";
   else{
-    if(s.room&&!s.isRandom)h+="<p class='muted' style='margin:0'>合言葉</p><div style='font:800 3.4rem/1.1 ui-monospace,Menlo,monospace;letter-spacing:.1em'>"+esc(s.room)+"</div><p class='muted'>この合言葉を相手に伝えてください</p>";
+    if(s.isRank&&s.opp)h+="<p><b>"+esc(s.opp.name)+"</b>（レート "+s.opp.rating+"）と対戦します</p>";
+    if(s.room&&!s.isRandom&&!s.isRank)h+="<p class='muted' style='margin:0'>合言葉</p><div style='font:800 3.4rem/1.1 ui-monospace,Menlo,monospace;letter-spacing:.1em'>"+esc(s.room)+"</div><p class='muted'>この合言葉を相手に伝えてください</p>";
     h+="<p class='muted'>"+esc(s.status||"")+"</p>";
   }
   h+="<button class='btn sub' id='o-cancel'>"+(s.phase==="failed"?"もどる":"やめる")+"</button></div>";
@@ -1614,7 +1653,9 @@ function onlineBegin(s,mine){
       B.remoteEnd=end;
     };
     game.onLog=function(t){B.log.push(t);draw()};
-    game.run().then(function(r){finishBattle(game,B.remoteEnd?{win:B.remoteEnd.ended==="failed"?undefined:seat,draw:B.remoteEnd.ended==="failed"}:r);if(!B.cancelled)s.close()},function(e){B.log.push("エラー: "+e.message);B.running=false;B.error=e;draw()});
+    game.run().then(function(r){
+      if(s.isRank&&!B.remoteEnd&&!B.cancelled)s.report(r.draw?"draw":(r.win===seat?"win":"lose"));
+      finishBattle(game,B.remoteEnd?{win:B.remoteEnd.ended==="failed"?undefined:seat,draw:B.remoteEnd.ended==="failed"}:r);if(!B.cancelled)s.close()},function(e){B.log.push("エラー: "+e.message);B.running=false;B.error=e;draw()});
     draw();
   });
 }
