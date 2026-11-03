@@ -225,6 +225,17 @@ dialog{border:0;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.35)}
 .pinfo .ecirc{min-height:0;gap:1px;margin-bottom:1px;flex-wrap:wrap}
 .pinfo .ecirc span{width:13px;height:13px;font-size:8px}
 .ptile .php,.ptile .hpbar{width:auto}
+
+.half{display:flex;justify-content:space-between;align-items:flex-start}
+.hcen{flex:1;display:flex;flex-direction:column;min-width:0}
+.hz{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%}
+.piles{flex-direction:column;align-items:center;gap:0}
+.piles .endbtn{width:100%;padding:6px 4px;font-size:.8rem;margin:0 0 6px}
+.prizes{display:grid;padding-bottom:0}
+.prizes .pz{box-shadow:1px 1px 3px rgba(0,0,0,.45)}
+.prizes .pl{bottom:-16px}
+.strip{height:28px;gap:10px;justify-content:flex-start}
+.strip .chip{margin-left:auto}
 </style>
 </head>
 <body>
@@ -1227,17 +1238,18 @@ function renderBattleScreen(){
   var el=$("t-battle"),g=B.game;el.innerHTML="";
   if(!g)return;
   var H=Math.max(window.innerHeight-76,420),W=Math.max(el.clientWidth||window.innerWidth,320);
-  var narrow=W<760,sideW=narrow?128:Math.min(210,Math.max(150,W*0.16));
-  var mainW=W-sideW,handH=Math.round(H*0.22),stripH=24;
-  var unit=(H-handH-stripH-10)/4.4,benchRowH=Math.floor(unit),actRowH=Math.floor(unit*1.2);
-  var benchW=Math.floor(Math.max(34,Math.min((benchRowH-18)*0.716,(mainW-24)/5-12)));
-  var activeW=Math.floor(Math.max(40,Math.min((actRowH-18)*0.716,mainW*0.22)));
-  var pileW=Math.max(30,Math.min(benchW,activeW)),prizeH=Math.max(16,Math.floor((actRowH-18)/3.3)),prizeW=Math.floor(prizeH*0.716);
+  var handH=Math.round(H*0.22),stripH=28;
+  var unit=(H-handH-stripH-10)/4.4,benchRowH=Math.floor(unit),actRowH=Math.floor(unit*1.2),zoneH=benchRowH+actRowH;
+  var benchW=Math.floor(Math.max(34,Math.min((benchRowH-18)*0.716,(W-24)/9-8)));
+  var activeW=Math.floor(Math.max(40,Math.min((actRowH-18)*0.716,(W-24)/7)));
+  var zoneW=2*benchW+14,mainW=W;
   var SEAT=B.me||0,me=g.players[SEAT],op=g.players[1-SEAT],myTurn=g.currentPlayer===SEAT;
   if(g.turnNumber!==UI.lastTurn){UI.lastTurn=g.turnNumber;showBanner("ターン"+g.turnNumber+"　"+(myTurn?"あなたの番":"相手の番"))}
   var acts=myActs(),canAct=acts.length>0;
 
-  var root=document.createElement("div");root.className="bf";root.style.height=H+"px";root.style.gridTemplateColumns="1fr "+sideW+"px";
+  var endIdx=-1;acts.forEach(function(a,k){if(a.t==="endTurn")endIdx=k});
+  var eb=document.createElement("button");eb.className="endbtn";eb.textContent="ターン終了";eb.disabled=endIdx<0;eb.onclick=function(){runAct(endIdx)};
+  var root=document.createElement("div");root.className="bf";root.style.height=H+"px";root.style.gridTemplateColumns="1fr";
   var mainc=document.createElement("div");mainc.className="bmain";
   var field=document.createElement("div");field.className="field";
 
@@ -1257,15 +1269,19 @@ function renderBattleScreen(){
     bx.appendChild(gg);openOvl(bx);
   }
   function prizeBox(s){
-    var d=document.createElement("div");d.className="prizes";d.style.gridTemplateColumns="repeat(2,"+prizeW+"px)";d.style.gridAutoRows=prizeH+"px";
-    for(var i=0;i<6;i++){var c=document.createElement("div");c.className=i<s.prizes.length?"pz":"pz gone";d.appendChild(c)}
+    var ch=prizeW0()/0.716,step=Math.max(14,Math.floor((zoneH-24-ch)/2));
+    var d=document.createElement("div");d.className="prizes";d.style.gridTemplateColumns="repeat(2,"+prizeW0()+"px)";d.style.gridAutoRows=step+"px";d.style.height=(step*2+ch)+"px";
+    for(var i=0;i<6;i++){var c=document.createElement("div");c.className=i<s.prizes.length?"pz":"pz gone";c.style.height=ch+"px";d.appendChild(c)}
     var l=document.createElement("span");l.className="pl";l.textContent="サイド "+s.prizes.length;d.appendChild(l);return d;
   }
-  function piles(s,title){
+  function prizeW0(){return benchW}
+  function piles(s,title,btn){
+    var pw=Math.max(30,Math.min(benchW,Math.floor(((zoneH-(btn?40:0)-34)/2)*0.716)));
     var d=document.createElement("div");d.className="piles";
-    d.appendChild(backCard(pileW,s.deck.length,"山札",null));
-    var top=s.discard.length?s.discard[s.discard.length-1]:null,dc=backCard(pileW,s.discard.length,"トラッシュ",top);
-    dc.style.cursor="pointer";dc.onclick=function(){showPile(title+"のトラッシュ",s.discard)};d.appendChild(dc);return d;
+    if(btn)d.appendChild(btn);
+    d.appendChild(backCard(pw,s.deck.length,"山札",null));
+    var top=s.discard.length?s.discard[s.discard.length-1]:null,dc=backCard(pw,s.discard.length,"トラッシュ",top);
+    dc.style.marginTop="18px";dc.style.cursor="pointer";dc.onclick=function(){showPile(title+"のトラッシュ",s.discard)};d.appendChild(dc);return d;
   }
   function benchRow(s,isMine){
     var r=document.createElement("div");r.className="brow"+(isMine?" mine":"");r.style.height=benchRowH+"px";
@@ -1281,20 +1297,31 @@ function renderBattleScreen(){
     var ac=document.createElement("div");ac.className="acenter";
     if(s.active){var t=pokeTile(s.active,activeW,isMine);t.dataset.slot="a";t.onclick=function(){if(isMine)pokeMenu(s.active,{k:"a"});else cardDetail(s.active.top)};ac.appendChild(t)}
     else ac.appendChild(empty(activeW));
-    var left=document.createElement("div");left.className="azone";var right=document.createElement("div");right.className="azone";
-    if(isMine){left.appendChild(prizeBox(s));right.appendChild(piles(s,"あなた"))}
-    else{left.appendChild(piles(s,"相手"));right.appendChild(prizeBox(s))}
-    r.appendChild(left);r.appendChild(ac);r.appendChild(right);return r;
+    r.appendChild(ac);return r;
   }
-  field.appendChild(benchRow(op,false));
-  field.appendChild(activeRow(op,false));
+  function half(s,isMine,title){
+    var h=document.createElement("div");h.className="half";h.style.height=zoneH+"px";
+    var cen=document.createElement("div");cen.className="hcen";
+    if(isMine){cen.appendChild(activeRow(s,true));cen.appendChild(benchRow(s,true))}
+    else{cen.appendChild(benchRow(s,false));cen.appendChild(activeRow(s,false))}
+    var L=document.createElement("div"),R=document.createElement("div");L.className=R.className="hz";L.style.width=R.style.width=zoneW+"px";
+    if(isMine){L.appendChild(prizeBox(s));R.appendChild(piles(s,title,eb))}
+    else{L.appendChild(piles(s,title,null));R.appendChild(prizeBox(s))}
+    h.appendChild(L);h.appendChild(cen);h.appendChild(R);return h;
+  }
+  field.appendChild(half(op,false,"相手"));
   var strip=document.createElement("div");strip.className="strip";
+  var ctl=document.createElement("span");ctl.className="lr";ctl.style.margin="0";
+  var qb=document.createElement("button");qb.className="lnkbtn red";qb.textContent="やめる";qb.onclick=forfeit;
+  var lb=document.createElement("button");lb.className="lnkbtn";lb.textContent="ログ";lb.onclick=function(){
+    var bx=document.createElement("div");bx.className="zoom logbox";bx.innerHTML="<div class='ztext'><b>ログ</b><div class='fulllog'>"+B.log.slice(-200).map(esc).join("<br>")+"</div></div>";openOvl(bx);var f=bx.querySelector(".fulllog");f.scrollTop=f.scrollHeight};
+  ctl.appendChild(qb);ctl.appendChild(lb);strip.appendChild(ctl);
+  var tinfo=document.createElement("span");tinfo.className="muted";tinfo.style.fontSize=".7rem";tinfo.textContent="ターン"+g.turnNumber+"・"+(myTurn?"あなたの番":"相手の番");strip.appendChild(tinfo);
   if(g.stadiumCard){var chip=document.createElement("button");chip.className="chip";chip.innerHTML="🏟 "+esc(g.stadiumCard.name)+" <span class='muted'>"+(g.stadiumOwner===SEAT?"（自分）":"（相手）")+"</span> <span class='lnk'>ⓘ 効果を見る</span>";chip.onclick=function(){cardDetail(g.stadiumCard)};strip.appendChild(chip)}
-  else strip.innerHTML="<span class='muted' style='font-size:.7rem'>スタジアムなし</span>";
+  else{var ns=document.createElement("span");ns.className="muted";ns.style.cssText="font-size:.7rem;margin-left:auto";ns.textContent="スタジアムなし";strip.appendChild(ns)}
   var hint=document.createElement("span");hint.id="bhint";hint.className="dhint";hint.textContent="光っているポケモンの上、または盤面にドロップ";strip.appendChild(hint);
   field.appendChild(strip);
-  field.appendChild(activeRow(me,true));
-  field.appendChild(benchRow(me,true));
+  field.appendChild(half(me,true,"あなた"));
   mainc.appendChild(field);
 
   // 手札
@@ -1309,23 +1336,10 @@ function renderBattleScreen(){
   });
   mainc.appendChild(hand);root.appendChild(mainc);
 
-  // サイドバー
-  var sb=document.createElement("div");sb.className="side";
-  function info(title,s,showHand){return "<div class='info'><b>"+title+"</b><br>手札 "+s.hand.length+"　山札 "+s.deck.length+"<br>サイド "+s.prizes.length+"　トラッシュ "+s.discard.length+"</div>"}
-  sb.innerHTML="<div class='turn'>ターン"+g.turnNumber+"</div><div class='who "+(myTurn?"me":"op")+"'>"+(myTurn?"あなたの番":"相手の番")+"</div>"+info(B.online?esc(B.oppName):"相手",op)+info(B.online&&myName()?esc(myName()):"あなた",me);
-  var endIdx=-1;acts.forEach(function(a,k){if(a.t==="endTurn")endIdx=k});
-  var eb=document.createElement("button");eb.className="endbtn";eb.textContent="ターン終了";eb.disabled=endIdx<0;eb.onclick=function(){runAct(endIdx)};sb.appendChild(eb);
+  // スタジアム効果ボタンは中央の帯に置く
   var stIdx=-1;acts.forEach(function(a,k){if(a.t==="useStadium")stIdx=k});
-  if(stIdx>=0){var sbn=document.createElement("button");sbn.className="mbtn sub";sbn.textContent="スタジアムの効果を使う";sbn.onclick=function(){runAct(stIdx)};sb.appendChild(sbn)}
-  var lr=document.createElement("div");lr.className="lr";
-  var lb=document.createElement("button");lb.className="lnkbtn";lb.textContent="ログ";lb.onclick=function(){
-    var bx=document.createElement("div");bx.className="zoom logbox";bx.innerHTML="<div class='ztext'><b>ログ</b><div class='fulllog'>"+B.log.slice(-200).map(esc).join("<br>")+"</div></div>";openOvl(bx);var f=bx.querySelector(".fulllog");f.scrollTop=f.scrollHeight};
-  var qb=document.createElement("button");qb.className="lnkbtn red";qb.textContent="やめる";qb.onclick=forfeit;
-  lr.appendChild(lb);lr.appendChild(qb);sb.appendChild(lr);
-  var lg=document.createElement("div");lg.className="slog";lg.textContent=B.log.slice(-6).join("\n");sb.appendChild(lg);
-  var sp=document.createElement("div");sp.style.flex="1";sb.appendChild(sp);
-  var ht=document.createElement("div");ht.className="shint";ht.innerHTML=(B.pending&&B.pending.type==="choice")?"選んでください":(canAct?"手札をドラッグして使う<br>ポケモンをタップでワザ・特性":(B.waiting?"相手の操作を待っています…":"相手の番です…"));sb.appendChild(ht);
-  root.appendChild(sb);
+  if(stIdx>=0){var sbn=document.createElement("button");sbn.className="mbtn sub";sbn.textContent="スタジアムの効果を使う";sbn.onclick=function(){runAct(stIdx)};strip.appendChild(sbn)}
+  var ht=document.createElement("span");ht.className="muted";ht.style.fontSize=".7rem";ht.textContent=(B.pending&&B.pending.type==="choice")?"選んでください":(canAct?"":(B.waiting?"相手の操作を待っています…":"相手の番です…"));strip.appendChild(ht);
   el.appendChild(root);
   if(B.pending&&B.pending.type==="choice")renderChoice(B.pending);else if($("dlg").open&&B._choiceOpen){$("dlg").close();B._choiceOpen=false}
 }
