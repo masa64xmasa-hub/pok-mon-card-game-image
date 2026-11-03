@@ -195,6 +195,9 @@ select{padding-right:8px}
 dialog{border:0;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.35)}
 .fb{font-size:.7rem}
 .cimg.nofb{background:transparent;box-shadow:none}.cimg.nofb .fb{display:none}
+.lr{gap:12px;margin:2px 0 6px}.lr .lnkbtn{padding:10px 8px}
+.endbtn{margin-bottom:6px}
+.actbtn,.mbtn{touch-action:manipulation}
 </style>
 </head>
 <body>
@@ -218,6 +221,7 @@ dialog{border:0;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.35)}
   <section id="t-battle" hidden></section>
   <section id="t-friend" hidden></section>
 </main>
+<footer style="text-align:center;padding:6px 12px 30px"><button class="btn sub sm" id="wipeBtn" style="color:#d02020;background:rgba(208,32,32,.1)">全てのデータを削除</button></footer>
 <dialog id="dlg"><div id="dlgbody"></div><div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn sub sm" id="dlgclose">閉じる</button></div></dialog>
 
 <script src="engine.js"></script>
@@ -239,7 +243,7 @@ function typeName(t){for(var i=0;i<TYPES.length;i++)if(TYPES[i][0]===t)return TY
 function typeColor(t){for(var i=0;i<TYPES.length;i++)if(TYPES[i][0]===t)return TYPES[i][2];return "#888"}
 
 var S=load();
-function load(){try{var s=JSON.parse(localStorage.getItem(KEY));if(s&&s.owned)return s}catch(e){}return{yen:100000,owned:{},decks:[],current:-1,pool:0}}
+function load(){try{var s=JSON.parse(localStorage.getItem(KEY));if(s&&s.owned)return s}catch(e){}return{yen:0,owned:{},decks:[],current:-1,pool:0}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 function $(id){return document.getElementById(id)}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
@@ -469,8 +473,7 @@ function renderSetPack(el,cf){
   var cost=packCost(cf,packMode),row2=document.createElement("div");row2.className="row";
   var ob=document.createElement("button");ob.className="btn";ob.textContent="開ける（"+cost.toLocaleString()+"円・"+(packMode===0?perCard:packMode===1?perCard*cf.ppb:perCard*cf.ppb*cf.bpc)+"枚）";ob.disabled=S.yen<cost;
   ob.onclick=function(){openSetPack(cf,packMode)};
-  var g=document.createElement("button");g.className="btn sub";g.textContent="テスト用 +10,000円";g.onclick=function(){S.yen+=10000;save();renderYen();renderPack()};
-  row2.appendChild(ob);row2.appendChild(g);info.appendChild(row2);
+  row2.appendChild(ob);info.appendChild(row2);
   box.appendChild(pk);box.appendChild(info);el.appendChild(box);
   if(lastPack&&lastPack.set===cf.prefix){var r=document.createElement("div");r.style.marginTop="14px";el.appendChild(r);renderPackResult(r,lastPack)}
 }
@@ -794,22 +797,23 @@ function grantDeck(d,price,free){
 
 // ---------- パック（スタートデッキ100） ----------
 var lastOpen=null;
+function runSD100Open(free){
+  if(!free&&S.yen<PRICE)return;
+    var o=openPack(true,free);if(!o){return}
+    var CODE=["C","MIR","RR","AR","SR_Goods","SR_Pokemon","MA","SAR","MUR"];
+    var cards=Object.keys(o.items).filter(function(k){return k.indexOf("E:")!==0&&ART[k]}).sort(function(a,b){return rarityRank(a)-rarityRank(b)||(a<b?-1:1)})
+      .map(function(k){var i=rarityIdx(k);return{art:k,rarity:CODE[i<0?0:i]}});
+    // 上の台紙（1枚の部分）を切ると、中からデッキのカードが出てくる
+    cutScene("SD100_pack_front",cards.length?cards[cards.length-1].art:null,0,function(){
+      if(cards.length)flipScene(cards,null,function(){renderPack()});else renderPack()},330/1593)}
 function renderSD100Pack(el){
   var box=document.createElement("div");box.className="panel packbox";
   var pk=document.createElement("div");pk.className="pk";pk.appendChild(imgEl("SD100_pack_front",true));
   var info=document.createElement("div");info.style.flex="1 1 240px";
   info.innerHTML="<h2 style='margin:0 0 4px'>スタートデッキ100</h2><p class='muted' style='margin:0 0 10px'>"+PRICE+"円。101種類のデッキから、全部同じ確率で1つ出ます（シークレットも同じ確率）。出たデッキのカードは持ち物に入ります（バラバラ）。開けたあとに、デッキとして保存するか選べます。</p>";
   var row=document.createElement("div");row.className="row";
-  var b=document.createElement("button");b.className="btn";b.textContent="開ける（"+PRICE+"円）";b.disabled=S.yen<PRICE;b.onclick=function(){if(S.yen<PRICE)return;
-    var o=openPack(true);if(!o){return}
-    var CODE=["C","MIR","RR","AR","SR_Goods","SR_Pokemon","MA","SAR","MUR"];
-    var cards=Object.keys(o.items).filter(function(k){return k.indexOf("E:")!==0&&ART[k]}).sort(function(a,b){return rarityRank(a)-rarityRank(b)||(a<b?-1:1)})
-      .map(function(k){var i=rarityIdx(k);return{art:k,rarity:CODE[i<0?0:i]}});
-    // 上の台紙（1枚の部分）を切ると、中からデッキのカードが出てくる
-    cutScene("SD100_pack_front",cards.length?cards[cards.length-1].art:null,0,function(){
-      if(cards.length)flipScene(cards,null,function(){renderPack()});else renderPack()},330/1593)};
-  var g=document.createElement("button");g.className="btn sub";g.textContent="テスト用 +10,000円";g.onclick=function(){S.yen+=10000;save();renderYen();renderPack()};
-  row.appendChild(b);row.appendChild(g);info.appendChild(row);
+  var b=document.createElement("button");b.className="btn";b.textContent="開ける（"+PRICE+"円）";b.disabled=S.yen<PRICE;b.onclick=function(){runSD100Open(false)};
+  row.appendChild(b);info.appendChild(row);
   box.appendChild(pk);box.appendChild(info);el.appendChild(box);
   if(lastOpen){var r=document.createElement("div");r.style.marginTop="14px";el.appendChild(r);renderOpened(r,lastOpen)}
 }
@@ -832,10 +836,10 @@ function deckItems(dk){
   return items;
 }
 function mirrorImage(id){var n=id-4000;if(n<=0)return null;var mi=DATA.mirror;for(var k in mi)if(mi[k]===n)return "SD100_M_"+k;return null}
-function openPack(defer){
-  if(S.yen<PRICE)return;
+function openPack(defer,free){
+  if(!free&&S.yen<PRICE)return;
   var dk=DATA.decks[Math.floor(Math.random()*DATA.decks.length)];
-  S.yen-=PRICE;
+  if(!free)S.yen-=PRICE;
   var items=deckItems(dk),total=0;
   Object.keys(items).forEach(function(k){total+=items[k];if(k.indexOf("E:")!==0)S.owned[k]=(S.owned[k]||0)+items[k]});
   // 何も選ばなければ、カードはバラバラ（持ち物に入るだけ）。「デッキとして保存」を押すとデッキにもなる
@@ -1053,8 +1057,12 @@ function finishBattle(game,r){
   B.reward=total?{lines:lines,total:total}:null;B.result={win:won,text:text};
   B.running=false;B.pending=null;B.online=null;B.os=null;B.remoteEnd=null;B.waiting=false;draw();
 }
-var _drawQ=false;
-function draw(){if(_drawQ)return;_drawQ=true;requestAnimationFrame(function(){_drawQ=false;if(!$("t-battle").hidden)renderBattle()})}
+var _drawQ=false,_PD=false,_pendDraw=false;
+// 指を置いている間は画面を作り直さない（作り直すと、押したつもりのボタンが別のボタンに入れ替わってしまう）
+var _pdT=0;document.addEventListener("pointerdown",function(){_PD=true;_pdT=Date.now()},true);
+function _pdEnd(){setTimeout(function(){_PD=false;if(_pendDraw){_pendDraw=false;draw()}},60)}
+document.addEventListener("pointerup",_pdEnd,true);document.addEventListener("pointercancel",_pdEnd,true);
+function draw(){if(_PD&&Date.now()-_pdT<1500){_pendDraw=true;setTimeout(draw,1600);return}if(_drawQ)return;_drawQ=true;requestAnimationFrame(function(){_drawQ=false;if(!$("t-battle").hidden)renderBattle()})}
 // ===== Swift風 対戦画面 =====
 var UI={seen:new WeakMap(),lastTurn:-1,drag:null};
 function slotEq(a,b){return a&&b&&a.k===b.k&&(a.k==="a"||a.i===b.i)}
@@ -1063,6 +1071,8 @@ function closeOvl(){var o=document.getElementById("ovl");if(o)o.remove()}
 function openOvl(node,onclose){
   closeOvl();var o=document.createElement("div");o.id="ovl";o.className="ovl";
   o.onclick=function(e){if(e.target===o){closeOvl();if(onclose)onclose()}};
+  // 開いた直後の数百ミリ秒は押せないようにする（カードをタップした指の「あとから来るクリック」が、出てきたメニューのボタンに当たるのを防ぐ）
+  o.style.pointerEvents="none";setTimeout(function(){o.style.pointerEvents=""},450);
   o.appendChild(node);document.body.appendChild(o);return o;
 }
 function runAct(i){closeOvl();var p=B.pending;if(!p||p.type!=="action")return;B.pending=null;p.res(i)}
@@ -1661,7 +1671,24 @@ function onlineBegin(s,mine){
 }
 function onlineEndText(end){return end.ended==="opponentLeft"?"相手が対戦をやめました。あなたの勝ち！":end.ended==="opponentForfeit"?"相手が戻ってこなかったので、あなたの勝ちです":"対戦を続けられませんでした\n"+(end.m||"")}
 
+$("wipeBtn").onclick=function(){
+  dialog("<h3 style='margin:0 0 6px'>全てのデータを削除</h3><p>持っているカード・デッキ・所持金・名前・ランクの記録への紐づけなど、この端末に保存されているデータを全部消して、最初の状態に戻します。<b>元に戻せません。</b></p><p class='muted' style='font-size:.8rem'>※ サーバー側のレートやフレンドの記録は消えませんが、この端末との紐づけが切れるため、同じ名前でも続きは使えなくなります。</p><div class='row'><button class='btn sm' id='wipeOk' style='background:#d02020'>全部削除する</button></div>");
+  $("wipeOk").onclick=function(){
+    try{frDisconnect()}catch(e){}
+    try{var ks=[];for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.indexOf("pk_")===0)ks.push(k)}ks.forEach(function(k){localStorage.removeItem(k)})}catch(e){}
+    location.reload();
+  };
+};
 renderYen();showTab("pack");
+// はじめての人は、スタートデッキ100を無料で1つ、必ず開ける
+(function(){
+  var none=!Object.keys(S.owned).some(function(k){return S.owned[k]>0})&&!S.decks.length;
+  if(!S.firstDone&&none){
+    var o=document.createElement("div");o.className="pko";o.style.zIndex=650;o.innerHTML="<div class='pkwrap' style='text-align:center'><div class='pktitle' style='margin-bottom:8px'>ようこそ！</div><p style='max-width:22em'>はじめに、スタートデッキ100を<b>1つ無料</b>で開けましょう。</p><button class='btn' id='firstGo' style='margin-top:12px'>開ける</button></div>";
+    document.body.appendChild(o);
+    $("firstGo").onclick=function(){o.remove();S.firstDone=1;S.starter=1;save();runSD100Open(true)};
+  }else if(!S.firstDone){S.firstDone=1;save()}
+})();
 </script>
 </body>
 </html>
