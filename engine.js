@@ -7406,6 +7406,21 @@
           }
           break;
         }
+        case "opponentChoosesReturnHandToDeck": {
+          const [count] = effect.a;
+          let k = 0;
+          while (k < count && opp.hand.length > 0) {
+            const labels = [];
+            for (const c of opp.hand) labels.push(c.name);
+            const i = (await this.ask(oppIndex, "card", `山札にもどす手札を選んでください（${k + 1}/${count}）`, labels)) ?? 0;
+            const c = opp.hand.splice(i, 1)[0];
+            opp.deck.push(c);
+            this.note(`相手は手札の「${c.name}」を山札にもどした`);
+            k += 1;
+          }
+          if (k > 0) this.shuffleDeck(oppIndex);
+          break;
+        }
         case "opponentShuffleHandIntoDeckThenDraw": {
           const [n] = effect.a;
           for (const x of opp.hand) opp.deck.push(x);
