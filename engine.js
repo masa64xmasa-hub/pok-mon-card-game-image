@@ -418,10 +418,10 @@
     }
 
     // ---- プレイヤーへの質問 ----
-    async ask(p, kind, prompt, options, allowsNone, targetSlots, targetOwner, gallery) {
+    async ask(p, kind, prompt, options, allowsNone, targetSlots, targetOwner, gallery, multi) {
       if (!options || options.length === 0) return null;
       var request = { kind: kind, prompt: prompt, options: options, allowsNone: !!allowsNone,
-        targetSlots: targetSlots || null, targetOwner: targetOwner == null ? null : targetOwner, gallery: gallery || null };
+        targetSlots: targetSlots || null, targetOwner: targetOwner == null ? null : targetOwner, gallery: gallery || null, multi: multi || null };
       var answer = await this.agents[p].choose(this, p, request);
       if (answer != null && answer >= 0 && answer < options.length) return answer;
       if (allowsNone) return null;
@@ -463,7 +463,8 @@
         var labels = remaining.map(function (c) { return c.name; });
         var text = prompt + "（" + picked.length + "/" + count + "枚）";
         var gallery = this.makeGallery(p, remaining);
-        var i = await this.ask(p, "card", text, labels, true, null, null, gallery);
+        var multi = count > 1 ? { cards: remaining.slice(), max: count - picked.length, min: 0, first: picked.length === 0, cont: picked.length > 0, total: count } : null;
+        var i = await this.ask(p, "card", text, labels, true, null, null, gallery, multi);
         if (i == null) break;
         picked.push(remaining.splice(i, 1)[0]);
       }
@@ -8276,7 +8277,9 @@
         const labels = [];
         for (const c of remaining) labels.push(c.name);
         const gallery = this.makeGallery(p, remaining);
-        let i = await this.ask(p, "card", `${prompt}（${picked.length + 1}/${count}枚）`, labels, false, null, null, gallery);
+        const need = Math.min(count - picked.length, remaining.length);
+        const multi = count > 1 ? { cards: remaining.slice(), max: need, min: need, first: picked.length === 0, cont: picked.length > 0, total: count } : null;
+        let i = await this.ask(p, "card", `${prompt}（${picked.length + 1}/${count}枚）`, labels, false, null, null, gallery, multi);
         if (i == null) i = 0;
         picked.push(remaining.splice(clampIdx(i, remaining.length), 1)[0]);
       }
