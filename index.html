@@ -242,6 +242,19 @@ dialog{border:0;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.35)}
 .handbtn{margin-left:auto;padding:4px 12px;font-size:.8rem}
 .strip .chip{margin-left:0}
 body.inbattle header.top{display:none}
+.gch{position:fixed;inset:0;z-index:950;background:var(--bg);color:var(--fg);display:flex;flex-direction:column;padding:max(10px,env(safe-area-inset-top)) 14px max(10px,env(safe-area-inset-bottom))}
+.gchh{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:4px 2px 10px;font-size:1rem}
+.gchc{font-size:.85rem;color:var(--mute);white-space:nowrap}
+.gchg{flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px;align-content:start;padding:4px 2px 12px;-webkit-overflow-scrolling:touch}
+.gci{position:relative;border-radius:8px;cursor:pointer;outline:3px solid transparent;touch-action:manipulation}
+.gci img,.gci canvas{width:100%;height:auto;display:block;border-radius:8px}
+.gci.off{opacity:.3;cursor:default}
+.gci.on{outline-color:var(--acc)}
+.gcn{position:absolute;left:6px;top:6px;min-width:26px;height:26px;border-radius:13px;background:var(--acc);color:var(--accfg);font-weight:700;display:none;align-items:center;justify-content:center;font-size:.9rem;padding:0 6px}
+.gci.on .gcn{display:flex}
+.gcz{position:absolute;right:4px;bottom:4px;border:0;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font-size:.85rem;padding:3px 7px}
+.gchf{display:flex;gap:10px;justify-content:center;padding-top:8px}
+.gchf .btn{min-width:140px}
 </style>
 </head>
 <body>
@@ -1355,9 +1368,56 @@ function renderBattleScreen(){
   if(stIdx>=0){var sbn=document.createElement("button");sbn.className="mbtn sub";sbn.textContent="スタジアムの効果を使う";sbn.onclick=function(){runAct(stIdx)};strip.appendChild(sbn)}
   var ht=document.createElement("span");ht.className="muted";ht.style.fontSize=".7rem";ht.textContent=(B.pending&&B.pending.type==="choice")?"選んでください":(canAct?"":(B.waiting?"相手の操作を待っています…":"相手の番です…"));strip.appendChild(ht);
   el.appendChild(root);
-  if(B.pending&&B.pending.type==="choice")renderChoice(B.pending);else if($("dlg").open&&B._choiceOpen){$("dlg").close();B._choiceOpen=false}
+  if(B.pending&&B.pending.type==="choice")renderChoice(B.pending);else if(document.getElementById("gch")&&!(B.pending&&B.pending.type==="choice")){document.getElementById("gch").remove()}else if($("dlg").open&&B._choiceOpen){$("dlg").close();B._choiceOpen=false}
+}
+function cardTileFor(c){return c.imageName?imgEl(c.imageName):energyTile(c)}
+// カード選択: 画面全体に広げる。複数枚選ぶ効果は、タップで複数選んでまとめて決定する
+function renderGalleryChoice(pd){
+  var req=pd.req,mu=req.multi,old=document.getElementById("gch");
+  if(old){if(old.__pd===pd)return;old.remove()}
+  function fin(i){setTimeout(function(){if(B.pending===pd){B.pending=null;pd.res(i)}var o=document.getElementById("gch");if(o&&o.__pd===pd)o.remove()},0)}
+  if(mu&&mu.cont){ // 2枚目以降は、最初にまとめて選んだ順に自動で答える
+    var q=B.multiQ||[];
+    if(q.length){var c0=q.shift(),ix=mu.cards.indexOf(c0);if(ix>=0){fin(ix);return}}
+    fin(null);return;
+  }
+  if(mu)B.multiQ=[];
+  var items=req.gallery?req.gallery.map(function(it){return{card:it.card,idx:it.optionIndex}}):(mu?mu.cards.map(function(c,i){return{card:c,idx:i}}):[]);
+  var ov=document.createElement("div");ov.id="gch";ov.className="gch";ov.__pd=pd;
+  var hd=document.createElement("div");hd.className="gchh";
+  var ttl=document.createElement("b");ttl.textContent=req.prompt;hd.appendChild(ttl);
+  var cnt=document.createElement("span");cnt.className="gchc";hd.appendChild(cnt);ov.appendChild(hd);
+  var grid=document.createElement("div");grid.className="gchg";ov.appendChild(grid);
+  var ft=document.createElement("div");ft.className="gchf";ov.appendChild(ft);
+  var sel=[];
+  var okb=document.createElement("button");okb.className="btn";okb.textContent="決定";
+  function refresh(){
+    if(mu){cnt.textContent=sel.length+" / "+mu.max+" 枚"+(mu.min===0?"（選ばなくてもOK）":"");okb.disabled=sel.length<mu.min;okb.textContent="決定（"+sel.length+"枚）"}
+    grid.querySelectorAll(".gci").forEach(function(n){var k=sel.indexOf(+n.dataset.idx);n.classList.toggle("on",k>=0);var b=n.querySelector(".gcn");if(b)b.textContent=k>=0?(k+1):""});
+  }
+  items.forEach(function(it){
+    var t=document.createElement("div");t.className="gci"+(it.idx==null?" off":"");if(it.idx!=null)t.dataset.idx=it.idx;
+    t.appendChild(cardTileFor(it.card));
+    if(mu){var nb=document.createElement("span");nb.className="gcn";t.appendChild(nb)}
+    if(it.idx!=null)t.onclick=function(){
+      if(!mu){fin(it.idx);return}
+      var k=sel.indexOf(it.idx);if(k>=0)sel.splice(k,1);else if(sel.length<mu.max)sel.push(it.idx);
+      refresh()};
+    t.oncontextmenu=function(e){e.preventDefault()};
+    var z=document.createElement("button");z.className="gcz";z.textContent="🔍";z.onclick=function(e){e.stopPropagation();cardDetail(it.card)};t.appendChild(z);
+    grid.appendChild(t)});
+  if(mu){
+    okb.onclick=function(){
+      if(!sel.length){fin(null);return}
+      B.multiQ=sel.slice(1).map(function(i){return mu.cards[i]});fin(sel[0])};
+    ft.appendChild(okb);
+    var rb=document.createElement("button");rb.className="btn sub";rb.textContent="選び直す";rb.onclick=function(){sel.length=0;refresh()};ft.appendChild(rb);
+  }
+  if(req.allowsNone&&!mu){var nb2=document.createElement("button");nb2.className="btn";nb2.textContent="選ばない";nb2.onclick=function(){fin(null)};ft.appendChild(nb2)}
+  document.body.appendChild(ov);refresh();
 }
 function renderChoice(pd){
+  if(pd.req.gallery||pd.req.multi){var dd=$("dlg");if(dd.open){dd.close();B._choiceOpen=false}renderGalleryChoice(pd);return}
   var req=pd.req,h="<h3 style='margin:0 0 8px'>"+esc(req.prompt)+"</h3><div id='ch' class='row' style='flex-direction:column;align-items:stretch'></div>";
   $("dlgbody").innerHTML=h;var box=$("dlgbody").querySelector("#ch");
   function done(i){B._choiceOpen=false;$("dlg").close();var p=B.pending;B.pending=null;p.res(i)}
