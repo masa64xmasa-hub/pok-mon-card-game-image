@@ -230,7 +230,7 @@ dialog{border:0;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.35)}
 .hcen{flex:1;display:flex;flex-direction:column;min-width:0}
 .hz{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%}
 .piles{flex-direction:column;align-items:center;gap:0}
-.piles .endbtn{width:100%;padding:6px 4px;font-size:.8rem;margin:0 0 6px}
+.piles .endbtn{width:100%;padding:4px;font-size:.8rem;margin:0 0 4px}
 .prizes{display:grid;padding-bottom:0}
 .prizes .pz{box-shadow:1px 1px 3px rgba(0,0,0,.45)}
 .prizes .pl{bottom:-16px}
@@ -1242,9 +1242,10 @@ function renderBattleScreen(){
   var handH=Math.round(H*0.22),stripH=28;
   var unit=(H-handH-stripH-8)/5,benchRowH=Math.floor(unit),actRowH=Math.floor(unit*1.5),zoneH=benchRowH+actRowH;
   var activeW=Math.floor(Math.max(40,Math.min((actRowH-18)*0.716,(W-24)/7)));
-  var prizeW=Math.floor(activeW*0.9),zoneW=2*prizeW+14,mainW=W;
+  var zoneIn=zoneH-8;
+  var pileW=Math.max(30,Math.min(activeW,Math.floor(((zoneIn-30-34)/2)*0.716)));
+  var prizeW=Math.floor(activeW*0.6),zoneW=Math.max(2*prizeW+14,pileW+16),mainW=W;
   var benchW=Math.floor(Math.max(34,Math.min((benchRowH-18)*0.716,(W-2*zoneW-24)/5-8)));
-  var zoneIn=zoneH-24; // 盤面の中央に少しすき間をあける
   var SEAT=B.me||0,me=g.players[SEAT],op=g.players[1-SEAT],myTurn=g.currentPlayer===SEAT;
   if(g.turnNumber!==UI.lastTurn){UI.lastTurn=g.turnNumber;showBanner("ターン"+g.turnNumber+"　"+(myTurn?"あなたの番":"相手の番"))}
   var acts=myActs(),canAct=acts.length>0;
@@ -1278,7 +1279,7 @@ function renderBattleScreen(){
   }
   function prizeW0(){return prizeW}
   function piles(s,title,btn,flip){
-    var pw=Math.max(30,Math.min(benchW,Math.floor(((zoneIn-(btn?40:0)-34)/2)*0.716)));
+    var pw=pileW;
     var d=document.createElement("div");d.className="piles";
     if(btn)d.appendChild(btn);
     var dk=backCard(pw,s.deck.length,"山札",null);
