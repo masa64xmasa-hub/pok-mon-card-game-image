@@ -1460,6 +1460,15 @@ function fnv(str){var h=0x811c9dc5;for(var i=0;i<str.length;i++){h^=str.charCode
 function fmtTime(ts){var d=new Date(ts);return d.getHours()+":"+("0"+d.getMinutes()).slice(-2)}
 
 // ---------- フレンド・チャット ----------
+// 順位の記録は端末にも控えておく。サーバーの記録が消えたら、控えから復元してもらう
+function rankCacheSave(me){
+  if(!me)return;
+  var g=(me.w||0)+(me.l||0)+(me.d||0),c=null;try{c=JSON.parse(lsGet("pk_rank","null"))}catch(e){}
+  var cg=c?(c.w||0)+(c.l||0)+(c.d||0):0;
+  if(g===0&&cg>0){if(!FR._restoring){FR._restoring=true;frSend({t:"rrestore",r:c.r,w:c.w,l:c.l,d:c.d})}return}
+  FR._restoring=false;
+  if(g>=cg)lsSet("pk_rank",JSON.stringify({r:me.r,w:me.w,l:me.l,d:me.d}));
+}
 var FR={ws:null,status:"offline",code:"",friends:[],inc:[],out:[],global:[],dms:{},view:"global",dm:null,draft:"",addDraft:"",need:"",retry:2,want:false,lastRead:{},trade:null,tradeEnd:null,tradeOffer:{},timer:null,rank:null};
 try{FR.lastRead=JSON.parse(lsGet("pk_lastread","{}"))||{}}catch(e){}
 function frVisible(){return !$("t-friend").hidden}
@@ -1490,7 +1499,7 @@ function frHandle(d){
   switch(d.t){
     case"ready":frSend({t:"rank"});FR.code=d.code;FR.retry=2;FR.status="online";frApplyState(d);FR.global=(d.global||[]);if(FR.dm)frSend({t:"history",with:FR.dm});break;
     case"state":frApplyState(d);break;
-    case"rank":FR.rank=d;if(!$("t-battle").hidden&&!B.running&&!B.os)renderBattle();break;
+    case"rank":FR.rank=d;rankCacheSave(d.me);if(!$("t-battle").hidden&&!B.running&&!B.os)renderBattle();break;
     case"gchat":if(d.msg&&!FR.global.some(function(m){return m.n===d.msg.n&&m.code===d.msg.code})){FR.global.push(d.msg);if(FR.global.length>200)FR.global.shift()}break;
     case"dm":{var o=d.with;(FR.dms[o]=FR.dms[o]||[]).push(d.msg);if(d.msg.f!==FR.code){var f=FR.friends.filter(function(x){return x.code===o})[0];if(f)f.lastTs=Math.max(f.lastTs,d.msg.ts)}if(FR.dm===o)frMarkRead(o);break}
     case"history":FR.dms[d.with]=d.msgs||[];if(FR.dm===d.with)frMarkRead(d.with);break;
