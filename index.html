@@ -1250,7 +1250,7 @@ function handDragStart(ev,i,c,el){
     var hit=null;
     if(slotEl){list.forEach(function(x){if(!hit&&x.a.target&&slotAttr(x.a.target)===slotEl.dataset.slot)hit=x})}
     if(!hit&&under&&under.closest("#t-battle .field")){list.forEach(function(x){if(!hit&&!x.a.target)hit=x})}
-    if(hit){UI.handOpen=false;runAct(hit.i)}
+    if(hit){runAct(hit.i)}
     else if(under&&under.closest("#t-battle .field")){
       // ベンチ等の空きにエネルギー等を落としたときは、メニューを出す
       handMenu(i,c)}
