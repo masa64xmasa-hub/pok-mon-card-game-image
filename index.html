@@ -237,6 +237,10 @@ dialog{border:0;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.35)}
 .strip{height:28px;gap:10px;justify-content:flex-start}
 .strip .chip{margin-left:auto}
 .half.mine .hz{justify-content:flex-end;padding-bottom:6px}.half.opp .hz{justify-content:flex-start;padding-top:6px}
+.handov{position:absolute;left:0;right:0;bottom:0;z-index:20;background:rgba(20,20,30,.78);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-radius:14px 14px 0 0;box-shadow:0 -4px 16px rgba(0,0,0,.3)}
+.handov.hdrag{opacity:.18}
+.handbtn{margin-left:auto;padding:4px 12px;font-size:.8rem}
+.strip .chip{margin-left:0}
 </style>
 </head>
 <body>
@@ -1109,7 +1113,7 @@ function _pdEnd(){setTimeout(function(){_PD=false;if(_pendDraw){_pendDraw=false;
 document.addEventListener("pointerup",_pdEnd,true);document.addEventListener("pointercancel",_pdEnd,true);
 function draw(){if(_PD&&Date.now()-_pdT<1500){_pendDraw=true;setTimeout(draw,1600);return}if(_drawQ)return;_drawQ=true;requestAnimationFrame(function(){_drawQ=false;if(!$("t-battle").hidden)renderBattle()})}
 // ===== Swift風 対戦画面 =====
-var UI={seen:new WeakMap(),lastTurn:-1,drag:null};
+var UI={seen:new WeakMap(),lastTurn:-1,drag:null,handOpen:false};
 function slotEq(a,b){return a&&b&&a.k===b.k&&(a.k==="a"||a.i===b.i)}
 function slotAttr(s){return s.k==="a"?"a":"b"+s.i}
 function closeOvl(){var o=document.getElementById("ovl");if(o)o.remove()}
@@ -1210,7 +1214,7 @@ function handDragStart(ev,i,c,el){
   function targetsOf(){var s=[];list.forEach(function(x){if(x.a.target)s.push(slotAttr(x.a.target))});return s}
   function move(e){
     if(!started&&Math.hypot(e.clientX-sx,e.clientY-sy)>10&&list.length){
-      started=true;el.classList.add("dragging");
+      started=true;el.classList.add("dragging");var ho0=document.getElementById("handov");if(ho0)ho0.classList.add("hdrag");
       fly=document.createElement("div");fly.className="fly";fly.appendChild(cardFace(c));document.body.appendChild(fly);
       var ts=targetsOf();document.querySelectorAll("#t-battle .mine [data-slot]").forEach(function(n){if(ts.indexOf(n.dataset.slot)>=0)n.classList.add("hl")});
       var hint=document.getElementById("bhint");if(hint)hint.classList.add("on");
@@ -1221,13 +1225,15 @@ function handDragStart(ev,i,c,el){
     window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",up);window.removeEventListener("pointercancel",up);
     document.querySelectorAll(".hl").forEach(function(n){n.classList.remove("hl")});
     var hint=document.getElementById("bhint");if(hint)hint.classList.remove("on");
-    if(fly)fly.remove();el.classList.remove("dragging");
+    if(fly)fly.remove();el.classList.remove("dragging");var ho1=document.getElementById("handov");if(ho1)ho1.classList.remove("hdrag");
     if(!started){handMenu(i,c);return}
-    var under=document.elementFromPoint(e.clientX,e.clientY),slotEl=under&&under.closest("#t-battle .mine [data-slot]");
+    var ho=document.getElementById("handov");if(ho)ho.style.pointerEvents="none";
+    var under=document.elementFromPoint(e.clientX,e.clientY);if(ho)ho.style.pointerEvents="";
+    var slotEl=under&&under.closest("#t-battle .mine [data-slot]");
     var hit=null;
     if(slotEl){list.forEach(function(x){if(!hit&&x.a.target&&slotAttr(x.a.target)===slotEl.dataset.slot)hit=x})}
     if(!hit&&under&&under.closest("#t-battle .field")){list.forEach(function(x){if(!hit&&!x.a.target)hit=x})}
-    if(hit)runAct(hit.i);
+    if(hit){UI.handOpen=false;runAct(hit.i)}
     else if(under&&under.closest("#t-battle .field")){
       // ベンチ等の空きにエネルギー等を落としたときは、メニューを出す
       handMenu(i,c)}
@@ -1239,8 +1245,8 @@ function renderBattleScreen(){
   var el=$("t-battle"),g=B.game;el.innerHTML="";
   if(!g)return;
   var H=Math.max(window.innerHeight-76,420),W=Math.max(el.clientWidth||window.innerWidth,320);
-  var handH=Math.round(H*0.22),stripH=28;
-  var unit=(H-handH-stripH-8)/5,benchRowH=Math.floor(unit),actRowH=Math.floor(unit*1.5),zoneH=benchRowH+actRowH;
+  var handH=Math.round(H*0.27),stripH=28;
+  var unit=(H-stripH-8)/5,benchRowH=Math.floor(unit),actRowH=Math.floor(unit*1.5),zoneH=benchRowH+actRowH;
   var activeW=Math.floor(Math.max(40,Math.min((actRowH-18)*0.716,(W-24)/7)));
   var zoneIn=zoneH-8;
   var pileW=Math.max(30,Math.min(activeW,Math.floor(((zoneIn-30-34)/2)*0.716)));
@@ -1322,6 +1328,7 @@ function renderBattleScreen(){
   var lb=document.createElement("button");lb.className="lnkbtn";lb.textContent="ログ";lb.onclick=function(){
     var bx=document.createElement("div");bx.className="zoom logbox";bx.innerHTML="<div class='ztext'><b>ログ</b><div class='fulllog'>"+B.log.slice(-200).map(esc).join("<br>")+"</div></div>";openOvl(bx);var f=bx.querySelector(".fulllog");f.scrollTop=f.scrollHeight};
   ctl.appendChild(qb);ctl.appendChild(lb);strip.appendChild(ctl);
+  var hb=document.createElement("button");hb.className="mbtn handbtn";hb.textContent=(UI.handOpen?"手札を閉じる":"手札")+"（"+me.hand.length+"）";hb.onclick=function(){UI.handOpen=!UI.handOpen;draw()};strip.appendChild(hb);
   var tinfo=document.createElement("span");tinfo.className="muted";tinfo.style.fontSize=".7rem";tinfo.textContent="ターン"+g.turnNumber+"・"+(myTurn?"あなたの番":"相手の番");strip.appendChild(tinfo);
   if(g.stadiumCard){var chip=document.createElement("button");chip.className="chip";chip.innerHTML="🏟 "+esc(g.stadiumCard.name)+" <span class='muted'>"+(g.stadiumOwner===SEAT?"（自分）":"（相手）")+"</span> <span class='lnk'>ⓘ 効果を見る</span>";chip.onclick=function(){cardDetail(g.stadiumCard)};strip.appendChild(chip)}
   else{var ns=document.createElement("span");ns.className="muted";ns.style.cssText="font-size:.7rem;margin-left:auto";ns.textContent="スタジアムなし";strip.appendChild(ns)}
@@ -1331,8 +1338,8 @@ function renderBattleScreen(){
   mainc.appendChild(field);
 
   // 手札
-  var hand=document.createElement("div");hand.className="hand";hand.style.height=handH+"px";
-  var n=Math.max(me.hand.length,1),gap=4,cw=Math.floor(Math.max(30,Math.min((mainW-24-gap*(n-1))/n,(handH-10)*0.716,110)));
+  var hand=document.createElement("div");hand.className="hand handov";hand.id="handov";hand.style.height=handH+"px";
+  var n=Math.max(me.hand.length,1),gap=4,cw=Math.floor(Math.max(30,Math.min((mainW-24-gap*(n-1))/n,(handH-10)*0.716,120)));
   me.hand.forEach(function(c,i){
     var usable=false;acts.forEach(function(a){if(a.handIndex===i)usable=true});
     var hc=document.createElement("div");hc.className="hcard"+(usable?" usable":"");hc.style.width=cw+"px";
@@ -1340,7 +1347,7 @@ function renderBattleScreen(){
     hc.onpointerdown=function(ev){if(ev.button>0)return;ev.preventDefault();handDragStart(ev,i,c,hc)};
     hand.appendChild(hc);
   });
-  mainc.appendChild(hand);root.appendChild(mainc);
+  root.style.position="relative";root.appendChild(mainc);if(UI.handOpen)root.appendChild(hand);
 
   // スタジアム効果ボタンは中央の帯に置く
   var stIdx=-1;acts.forEach(function(a,k){if(a.t==="useStadium")stIdx=k});
