@@ -236,7 +236,7 @@ dialog{border:0;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.35)}
 .prizes .pl{bottom:-16px}
 .strip{height:28px;gap:10px;justify-content:flex-start}
 .strip .chip{margin-left:auto}
-.half.mine .hz{justify-content:flex-start}.half.opp .hz{justify-content:flex-end}
+.half.mine .hz{justify-content:flex-end;padding-bottom:6px}.half.opp .hz{justify-content:flex-start;padding-top:6px}
 </style>
 </head>
 <body>
@@ -1240,10 +1240,11 @@ function renderBattleScreen(){
   if(!g)return;
   var H=Math.max(window.innerHeight-76,420),W=Math.max(el.clientWidth||window.innerWidth,320);
   var handH=Math.round(H*0.22),stripH=28;
-  var unit=(H-handH-stripH-10)/4.4,benchRowH=Math.floor(unit),actRowH=Math.floor(unit*1.2),zoneH=benchRowH+actRowH;
-  var benchW=Math.floor(Math.max(34,Math.min((benchRowH-18)*0.716,(W-24)/9-8)));
+  var unit=(H-handH-stripH-8)/5,benchRowH=Math.floor(unit),actRowH=Math.floor(unit*1.5),zoneH=benchRowH+actRowH;
   var activeW=Math.floor(Math.max(40,Math.min((actRowH-18)*0.716,(W-24)/7)));
-  var zoneW=2*benchW+14,mainW=W;
+  var prizeW=Math.floor(activeW*0.9),zoneW=2*prizeW+14,mainW=W;
+  var benchW=Math.floor(Math.max(34,Math.min((benchRowH-18)*0.716,(W-2*zoneW-24)/5-8)));
+  var zoneIn=zoneH-24; // 盤面の中央に少しすき間をあける
   var SEAT=B.me||0,me=g.players[SEAT],op=g.players[1-SEAT],myTurn=g.currentPlayer===SEAT;
   if(g.turnNumber!==UI.lastTurn){UI.lastTurn=g.turnNumber;showBanner("ターン"+g.turnNumber+"　"+(myTurn?"あなたの番":"相手の番"))}
   var acts=myActs(),canAct=acts.length>0;
@@ -1270,19 +1271,21 @@ function renderBattleScreen(){
     bx.appendChild(gg);openOvl(bx);
   }
   function prizeBox(s){
-    var ch=prizeW0()/0.716,step=Math.max(14,Math.floor((zoneH-24-ch)/2));
+    var ch=prizeW0()/0.716,step=Math.max(14,Math.floor((zoneIn-16-ch)/2));
     var d=document.createElement("div");d.className="prizes";d.style.gridTemplateColumns="repeat(2,"+prizeW0()+"px)";d.style.gridAutoRows=step+"px";d.style.height=(step*2+ch)+"px";
     for(var i=0;i<6;i++){var c=document.createElement("div");c.className=i<s.prizes.length?"pz":"pz gone";c.style.height=ch+"px";d.appendChild(c)}
     var l=document.createElement("span");l.className="pl";l.textContent="サイド "+s.prizes.length;d.appendChild(l);return d;
   }
-  function prizeW0(){return benchW}
-  function piles(s,title,btn){
-    var pw=Math.max(30,Math.min(benchW,Math.floor(((zoneH-(btn?40:0)-34)/2)*0.716)));
+  function prizeW0(){return prizeW}
+  function piles(s,title,btn,flip){
+    var pw=Math.max(30,Math.min(benchW,Math.floor(((zoneIn-(btn?40:0)-34)/2)*0.716)));
     var d=document.createElement("div");d.className="piles";
     if(btn)d.appendChild(btn);
-    d.appendChild(backCard(pw,s.deck.length,"山札",null));
+    var dk=backCard(pw,s.deck.length,"山札",null);
     var top=s.discard.length?s.discard[s.discard.length-1]:null,dc=backCard(pw,s.discard.length,"トラッシュ",top);
-    dc.style.marginTop="18px";dc.style.cursor="pointer";dc.onclick=function(){showPile(title+"のトラッシュ",s.discard)};d.appendChild(dc);return d;
+    dc.style.cursor="pointer";dc.onclick=function(){showPile(title+"のトラッシュ",s.discard)};
+    if(flip){dc.style.marginBottom="18px";d.appendChild(dc);d.appendChild(dk)}else{dc.style.marginTop="18px";d.appendChild(dk);d.appendChild(dc)}
+    return d;
   }
   function benchRow(s,isMine){
     var r=document.createElement("div");r.className="brow"+(isMine?" mine":"");r.style.height=benchRowH+"px";
@@ -1306,15 +1309,9 @@ function renderBattleScreen(){
     if(isMine){cen.appendChild(activeRow(s,true));cen.appendChild(benchRow(s,true))}
     else{cen.appendChild(benchRow(s,false));cen.appendChild(activeRow(s,false))}
     var L=document.createElement("div"),R=document.createElement("div");L.className=R.className="hz";L.style.width=R.style.width=zoneW+"px";
-    if(isMine){L.appendChild(prizeBox(s));
-      // 山札・トラッシュ・ターン終了は、バトル場のすぐ右横
-      var cw=W-2*zoneW,px=Math.floor(cw/2+activeW/2+14),pz=piles(s,title,eb);
-      cen.style.position="relative";pz.style.position="absolute";pz.style.left=px+"px";pz.style.top="0";pz.style.zIndex="3";cen.appendChild(pz);
-      cen.querySelector(".brow").style.width=(px-10)+"px"}
-    else{R.appendChild(prizeBox(s));
-      var cw2=W-2*zoneW,px2=Math.floor(cw2/2+activeW/2+14),pz2=piles(s,title,null);
-      cen.style.position="relative";pz2.style.position="absolute";pz2.style.right=px2+"px";pz2.style.bottom="0";pz2.style.zIndex="3";cen.appendChild(pz2);
-      var br=cen.querySelector(".brow");br.style.width=(px2-10)+"px";br.style.marginLeft="auto"}
+    // 本物のプレイマットと同じ: 自分=左下にサイド・右下に山札(上)とトラッシュ(下) / 相手=右上にサイド・左上にトラッシュ(上)と山札(下)
+    if(isMine){L.appendChild(prizeBox(s));R.appendChild(piles(s,title,eb))}
+    else{L.appendChild(piles(s,title,null,true));R.appendChild(prizeBox(s))}
     h.appendChild(L);h.appendChild(cen);h.appendChild(R);return h;
   }
   field.appendChild(half(op,false,"相手"));
