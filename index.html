@@ -1265,6 +1265,23 @@ function handMenu(i,c){
   uniqueBy(list,g).forEach(function(u){ex.appendChild(actBtn(u.tx,"",function(){runAct(u.i)}))});
   openOvl(zoomDetail(c,ex));
 }
+// にげる: ボタンは1つ。押すと、入れ替えるベンチを選ぶ画面になる
+function chooseRetreat(rt){
+  var old=document.getElementById("rtch");if(old)old.remove();
+  var me=B.game.players[B.me||0];
+  var ov=document.createElement("div");ov.id="rtch";ov.className="gch";
+  var hd=document.createElement("div");hd.className="gchh";hd.innerHTML="<b>にげる: 入れ替えるベンチのポケモンを選んでください</b>";ov.appendChild(hd);
+  var grid=document.createElement("div");grid.className="gchg";ov.appendChild(grid);
+  rt.forEach(function(u){
+    var pk=me.bench[u.a.benchIndex];if(!pk)return;
+    var t=document.createElement("div");t.className="gci";t.appendChild(imgEl(pk.top.imageName));
+    var inf=document.createElement("div");inf.className="pinfo";inf.style.pointerEvents="none";inf.innerHTML="<div class='php'>ベンチ"+(u.a.benchIndex+1)+"　HP "+pk.remainingHP+"/"+pk.hp+"</div>";t.appendChild(inf);
+    t.onclick=function(){ov.remove();runAct(u.i)};
+    var z=document.createElement("button");z.className="gcz";z.textContent="🔍";z.onclick=function(e){e.stopPropagation();cardDetail(pk.top)};t.appendChild(z);
+    grid.appendChild(t)});
+  var ft=document.createElement("div");ft.className="gchf";var cb=document.createElement("button");cb.className="btn sub";cb.textContent="やめる";cb.onclick=function(){ov.remove()};ft.appendChild(cb);ov.appendChild(ft);
+  document.body.appendChild(ov);
+}
 function pokeMenu(pk,slot){
   var g=B.game,acts=myActs(),box=document.createElement("div");box.className="zoom";
   var w=document.createElement("div");w.className="zimg small";w.appendChild(imgEl(pk.top.imageName,true));box.appendChild(w);
@@ -1281,7 +1298,7 @@ function pokeMenu(pk,slot){
   if(d&&d.ability){var s=document.createElement("div");s.className="muted";s.textContent="特性「"+d.ability.name+"」"+d.ability.text;list.appendChild(s)}
   uniqueBy(ab,g).forEach(function(u){list.appendChild(actBtn(u.tx,"ab",function(){runAct(u.i)}))});
   uniqueBy(at,g).forEach(function(u){list.appendChild(actBtn(u.tx,"at",function(){runAct(u.i)}))});
-  uniqueBy(rt,g).forEach(function(u){list.appendChild(actBtn(u.tx,"rt",function(){runAct(u.i)}))});
+  if(rt.length)list.appendChild(actBtn("にげる","rt",function(){closeOvl();chooseRetreat(rt)}));
   if(!ab.length&&!at.length&&!rt.length)list.appendChild(Object.assign(document.createElement("div"),{className:"muted",textContent:B.pending?"このポケモンでできる行動はありません":"相手の番です"}));
   list.appendChild(actBtn("カードの詳細","sub",function(){cardDetail(pk.top)}));
   tx.appendChild(list);box.appendChild(tx);openOvl(box);
