@@ -294,7 +294,7 @@ body.inbattle .gchg{touch-action:pan-y}
   <section id="t-battle" hidden></section>
   <section id="t-friend" hidden></section>
 </main>
-<footer style="text-align:center;padding:160px 12px 24px"><button id="wipeBtn" style="font:inherit;font-size:.62rem;color:#888;opacity:.3;background:none;border:0;padding:6px 10px;cursor:pointer">データを削除</button></footer>
+<footer style="text-align:center;padding:14px 12px 24px"><button class="btn sub sm" id="fbBtn" style="display:block;margin:0 auto 160px">🐞 不具合・ご意見を送る</button><button id="wipeBtn" style="font:inherit;font-size:.62rem;color:#888;opacity:.3;background:none;border:0;padding:6px 10px;cursor:pointer">データを削除</button></footer>
 <dialog id="dlg"><div id="dlgbody"></div><div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn sub sm" id="dlgclose">閉じる</button></div></dialog>
 
 <script src="engine.js"></script>
@@ -1282,7 +1282,47 @@ function zoomDetail(c,extra){
   if(extra)tx.appendChild(extra);box.appendChild(tx);
   return box;
 }
-function cardDetail(c){openOvl(zoomDetail(c))}
+
+// ---------- 不具合のフィードバック ----------
+function fbContext(){
+  var o=[];
+  try{
+    var g=B.game;
+    if(g){
+      var SEAT=B.me||0,me=g.players[SEAT],op=g.players[1-SEAT];
+      function pk(x){return x?(x.name+" HP"+x.remainingHP+"/"+x.hp+" E"+x.attachedEnergy.length+(x.tool?" 🎒"+x.tool.name:"")):"-"}
+      o.push("ターン"+g.turnNumber+" "+(g.currentPlayer===SEAT?"自分":"相手")+"の番 / 対戦種別:"+(B.online?"オンライン":"CPU"));
+      o.push("自分の手札: "+me.hand.map(function(c){return c.name}).join("、"));
+      o.push("自分: バトル "+pk(me.active)+" / ベンチ "+me.bench.map(pk).join(" | "));
+      o.push("相手: バトル "+pk(op.active)+" / ベンチ "+op.bench.map(pk).join(" | "));
+      o.push("スタジアム: "+(g.stadiumCard?g.stadiumCard.name:"なし"));
+      o.push("--- ログ(最新) ---");o=o.concat(B.log.slice(-30));
+    }
+  }catch(e){o.push("(状況の取得に失敗: "+e.message+")")}
+  return o.join("\n");
+}
+function openFeedback(cardName){
+  var inb=!!B.game;
+  dialog("<h3 style='margin:0 0 6px'>不具合・ご意見を送る</h3><p class='muted' style='margin:0 0 6px'>カードの効果がおかしい、動きが変、などを開発者に送れます。"+(inb?"いまの対戦の状況（手札・盤面・ログ）も一緒に送られます。":"")+"</p>"+
+    "<input type='text' id='fbCard' placeholder='カードの名前（わかれば）' style='width:100%;margin-bottom:6px' value='"+esc(cardName||"")+"'>"+
+    "<textarea id='fbText' rows='5' maxlength='700' placeholder='どんなことが起きましたか？（例：○○の効果を使ってもエネルギーがつかなかった）' style='width:100%'></textarea>"+
+    "<p class='muted' id='fbMsg' style='min-height:1.2em;margin:4px 0'></p><div class='row'><button class='btn sm' id='fbGo'>送る</button></div>");
+  $("fbGo").onclick=function(){
+    var tx=$("fbText").value.trim(),cn=$("fbCard").value.trim();
+    if(!tx){$("fbMsg").textContent="内容を書いてください";return}
+    $("fbGo").disabled=true;$("fbMsg").textContent="送っています…";
+    var body={text:(cn?"【"+cn+"】 ":"")+tx,name:myName(),kind:inb?"battle":"menu",ctx:fbContext(),ver:"web"};
+    fetch(serverBase()+"/feedback",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)})
+      .then(function(r){return r.json().catch(function(){return{ok:false}}).then(function(j){return{st:r.status,j:j}})})
+      .then(function(x){
+        if(x.j&&x.j.ok){$("fbMsg").textContent="送りました。ありがとうございます！";$("fbText").value="";setTimeout(function(){var d=$("dlg");d.close?d.close():d.removeAttribute("open")},1200)}
+        else{$("fbMsg").textContent=(x.j&&x.j.m)||"送れませんでした。しばらくしてからやり直してください";$("fbGo").disabled=false}})
+      .catch(function(){$("fbMsg").textContent="サーバーにつながりません（起動に1分ほどかかることがあります）。少し待ってやり直してください";$("fbGo").disabled=false});
+  };
+}
+function cardDetail(c){var z=zoomDetail(c),t=z.querySelector(".ztext");
+  if(t){var b=document.createElement("button");b.className="btn sm sub";b.style.marginTop="8px";b.textContent="🐞 このカードの不具合を報告";b.onclick=function(){openFeedback(c.name)};t.appendChild(b)}
+  openOvl(z)}
 function actBtn(label,cls,fn){var b=document.createElement("button");b.className="mbtn "+(cls||"");b.textContent=label;b.onclick=fn;return b}
 function uniqueBy(acts,g){var seen={},out=[];acts.forEach(function(a){var tx=g.describe(a.a,B.me||0);if(seen[tx])return;seen[tx]=1;out.push({i:a.i,tx:tx})});return out}
 function handMenu(i,c){
@@ -1485,7 +1525,7 @@ function renderBattleScreen(){
   var qb=document.createElement("button");qb.className="lnkbtn red";qb.textContent="やめる";qb.onclick=forfeit;
   var lb=document.createElement("button");lb.className="lnkbtn";lb.textContent="ログ";lb.onclick=function(){
     var bx=document.createElement("div");bx.className="zoom logbox";bx.innerHTML="<div class='ztext'><b>ログ</b><div class='fulllog'>"+B.log.slice(-200).map(esc).join("<br>")+"</div></div>";openOvl(bx);var f=bx.querySelector(".fulllog");f.scrollTop=f.scrollHeight};
-  ctl.appendChild(qb);ctl.appendChild(lb);strip.appendChild(ctl);
+  var fbb=document.createElement("button");fbb.className="lnkbtn";fbb.textContent="報告";fbb.onclick=function(){openFeedback("")};ctl.appendChild(qb);ctl.appendChild(lb);ctl.appendChild(fbb);strip.appendChild(ctl);
   var hb=document.createElement("button");hb.className="mbtn handbtn";hb.textContent=(UI.handOpen?"手札を隠す":"手札を出す")+"（"+me.hand.length+"）";hb.onclick=function(){UI.handOpen=!UI.handOpen;draw()};strip.appendChild(hb);
   var tinfo=document.createElement("span");tinfo.className="muted";tinfo.style.fontSize=".7rem";tinfo.textContent="ターン"+g.turnNumber+"・"+(myTurn?"あなたの番":"相手の番");strip.appendChild(tinfo);
   if(g.stadiumCard){var chip=document.createElement("button");chip.className="chip";chip.innerHTML="🏟 "+esc(g.stadiumCard.name)+" <span class='muted'>"+(g.stadiumOwner===SEAT?"（自分）":"（相手）")+"</span> <span class='lnk'>ⓘ 効果を見る</span>";chip.onclick=function(){cardDetail(g.stadiumCard)};strip.appendChild(chip)}
@@ -2025,6 +2065,7 @@ function backupText(){
   try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.indexOf("pk_")===0)o.ls[k]=localStorage.getItem(k)}}catch(e){}
   return JSON.stringify(o);
 }
+$("fbBtn").onclick=function(){openFeedback("")};
 $("wipeBtn").onclick=function(){
   dialog("<h3 style='margin:0 0 6px'>全てのデータを削除</h3><p>持っているカード・デッキ・所持金・名前・ランクの記録への紐づけなど、この端末に保存されているデータを全部消して、最初の状態に戻します。<b>元に戻せません。</b></p><p class='muted' style='font-size:.8rem'>※ サーバー側のレートやフレンドの記録は消えませんが、この端末との紐づけが切れるため、同じ名前でも続きは使えなくなります。</p><div class='row'><button class='btn sm' id='wipeOk' style='background:#d02020'>全部削除する</button></div>");
   $("wipeOk").onclick=function(){
