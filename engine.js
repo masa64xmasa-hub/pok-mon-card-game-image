@@ -536,7 +536,7 @@
         var chosen = cands[i];
         this.removeFromHand(p, chosen);
         this.players[p].active = this.makePokemon(chosen);
-        while (this.players[p].bench.length < this.rules.maxBench) {
+        while (this.players[p].bench.length < this.benchMax(this.players[p])) {
           var bc = this.players[p].hand.filter(function (c) { return c.isBasicPokemon; });
           if (bc.length === 0) break;
           var j = await this.ask(p, "setupBench", "ベンチに出すポケモンを選んでください", bc.map(function (c) { return c.name; }), true);
@@ -609,10 +609,10 @@
           }
         }
       }
-      if (me.bench.length < this.rules.maxBench) {
+      if (me.bench.length < this.benchMax(me)) {
         for (i = 0; i < me.hand.length; i++) if (me.hand[i].isBasicPokemon) actions.push({ t: "playBasic", handIndex: i });
       }
-      if (me.bench.length < this.rules.maxBench && this.turnNumber > me.cannotPlayItemsUntilTurn) {
+      if (me.bench.length < this.benchMax(me) && this.turnNumber > me.cannotPlayItemsUntilTurn) {
         for (i = 0; i < me.hand.length; i++) if (me.hand[i].isFossil) actions.push({ t: "playBasic", handIndex: i });
       }
       var firstTurnEvolveBlocked = this.rules.noEvolutionOnFirstTurn && isFirstTurnOfPlayer;
@@ -1312,6 +1312,15 @@
         }
       }
       return null;
+    },
+
+    benchMax(pl) {
+      // スタジアム「ゼロの大空洞」: 場に「テラスタル」のポケモンがいるプレイヤーは、ベンチに8匹まで出せる
+      if (this.stadiumCard && this.stadiumCard.trainerData && pl) {
+        var ef = this.stadiumCard.trainerData.effects || [];
+        if (ef.some(function (e) { return e.c === "terastalBenchSizeEight"; }) && pl.allPokemon.some(function (x) { return x.data.isTerastal; })) return Math.max(8, this.rules.maxBench);
+      }
+      return this.rules.maxBench;
     },
 
     ownerIndex(pk) {
@@ -3954,7 +3963,7 @@
         }
         case "putBasicNamePrefixPokemonFromDeckToBench": {
           const [prefix] = effect.a;
-          const room = this.rules.maxBench - me.bench.length;
+          const room = this.benchMax(me) - me.bench.length;
           const basics = me.deck.filter((c) => c.isBasicPokemon && c.name.startsWith(prefix));
           if (room > 0 && basics.length > 0) {
             const pickedBasics = await this.pickCards(p, basics, room, `ベンチに出す「${prefix}ポケモン」`);
@@ -4042,7 +4051,7 @@
             if (c.pokemonData != null && c.pokemonData.type === type && c.isBasicPokemon) cands.push(c);
           }
           if (cands.length === 0) break;
-          const room = this.rules.maxBench - me.bench.length;
+          const room = this.benchMax(me) - me.bench.length;
           if (room <= 0) break;
           const picked = await this.pickCards(p, cands, Math.min(maxCount, room), `ベンチに出す${J(type)}ポケモン（トラッシュから）`);
           for (const c of picked) {
@@ -4623,7 +4632,7 @@
         }
         case "putBasicPokemonOfTypeOnBenchFromDeck": {
           const [type, maxCount] = effect.a;
-          const room = this.rules.maxBench - me.bench.length;
+          const room = this.benchMax(me) - me.bench.length;
           if (room > 0) {
             const candidates = [];
             for (const c of me.deck) { if (c.isBasicPokemon && c.pokemonData != null && c.pokemonData.type === type) candidates.push(c); }
@@ -4957,7 +4966,7 @@
         }
         case "putBasicPokemonOnBenchFromDeck": {
           const [maxCount] = effect.a;
-          const room = this.rules.maxBench - me.bench.length;
+          const room = this.benchMax(me) - me.bench.length;
           if (room > 0) {
             const candidates = [];
             for (const c of me.deck) { if (c.isBasicPokemon) candidates.push(c); }
@@ -5184,7 +5193,7 @@
       switch (effect.c) {
         case "putNamedPokemonFromDiscardToBench": {
           const [name, maxCount] = effect.a;
-          const room = this.rules.maxBench - me.bench.length;
+          const room = this.benchMax(me) - me.bench.length;
           if (room > 0) {
             const cands = me.discard.filter((c) => c.name === name);
             const picked = await this.pickCards(p, cands, Math.min(maxCount, room), `ベンチに出す「${name}」`);
@@ -5198,7 +5207,7 @@
         }
         case "putPokemonNameContainingFromDeckToBench": {
           const [keyword] = effect.a;
-          const room = this.rules.maxBench - me.bench.length;
+          const room = this.benchMax(me) - me.bench.length;
           if (room > 0) {
             const cands = me.deck.filter((c) => c.isPokemon && c.name.includes(keyword));
             const picked = await this.pickCards(p, cands, room, `ベンチに出す「${keyword}」ポケモン`);
@@ -5681,7 +5690,7 @@
           }
           case "putBasicPokemonWithMaxHPOnBenchFromDeck": {
             const [maxHP] = effect.a;
-            if (me.bench.length >= this.rules.maxBench) return false;
+            if (me.bench.length >= this.benchMax(me)) return false;
             if (!me.deck.some((c) => c.isBasicPokemon && ((c.pokemonData ? c.pokemonData.hp : 999) <= maxHP))) return false;
             break;
           }
@@ -5703,7 +5712,7 @@
             if (me.active == null || me.bench.length === 0) return false;
             break;
           case "lookTopCardsPutBasicOfTypeOnBenchRestToBottom":
-            if (me.bench.length >= this.rules.maxBench || me.deck.length === 0) return false;
+            if (me.bench.length >= this.benchMax(me) || me.deck.length === 0) return false;
             break;
           case "searchDeckOneBasicStage1Stage2":
             if (me.deck.length === 0) return false;
@@ -5734,7 +5743,7 @@
           }
           case "putBasicPokemonNamePrefixFromDeckToBench": {
             const [prefix] = effect.a;
-            if (me.bench.length >= this.rules.maxBench) return false;
+            if (me.bench.length >= this.benchMax(me)) return false;
             if (!me.deck.some((c) => c.isBasicPokemon && c.name.startsWith(prefix))) return false;
             break;
           }
@@ -5985,7 +5994,7 @@
         }
         case "putBasicPokemonWithMaxHPOnBenchFromDeck": {
           const [maxHP, maxCount] = effect.a;
-          const room = this.rules.maxBench - me.bench.length;
+          const room = this.benchMax(me) - me.bench.length;
           if (room > 0) {
             const candidates = [];
             for (const c of me.deck) {
@@ -6054,7 +6063,7 @@
         }
         case "putBasicPokemonNamePrefixFromDeckToBench": {
           const [prefix, maxCount] = effect.a;
-          const room = this.rules.maxBench - me.bench.length;
+          const room = this.benchMax(me) - me.bench.length;
           if (room > 0) {
             const cands = me.deck.filter((c) => c.isBasicPokemon && c.name.startsWith(prefix));
             const picked = await this.pickCards(p, cands, Math.min(maxCount, room), `ベンチに出す「${prefix}」ポケモン`);
@@ -6857,13 +6866,13 @@
           }
           case "putNamedPokemonFromDeckOnBench": {
             const [name] = effect.a;
-            if (me.bench.length >= this.rules.maxBench) return false;
+            if (me.bench.length >= this.benchMax(me)) return false;
             if (!me.deck.some((x) => x.name === name)) return false;
             break;
           }
           case "putOneOfNamedPokemonFromDeckOnBench": {
             const [names] = effect.a;
-            if (me.bench.length >= this.rules.maxBench) return false;
+            if (me.bench.length >= this.benchMax(me)) return false;
             if (!me.deck.some((x) => names.includes(x.name))) return false;
             break;
           }
@@ -7384,7 +7393,7 @@
           break;
         }
         case "lookOpponentHandPutBasicsOnTheirBench": {
-          const room = this.rules.maxBench - opp.bench.length;
+          const room = this.benchMax(opp) - opp.bench.length;
           const basics = opp.hand.filter((x) => x.isBasicPokemon);
           if (room <= 0 || basics.length === 0) break;
           const picked = await this.pickCards(p, basics, room, "相手のベンチに出すたねポケモン（相手の手札から）");
@@ -7646,7 +7655,7 @@
         }
         case "putOneOfNamedPokemonFromDeckOnBench": {
           const [names] = effect.a;
-          if (me.bench.length < this.rules.maxBench) {
+          if (me.bench.length < this.benchMax(me)) {
             const cands = me.deck.filter((x) => names.includes(x.name));
             const picked = await this.pickCards(p, cands, 1, "ベンチに出すポケモン");
             if (picked.length > 0) {
@@ -7900,7 +7909,7 @@
         case "putNamedPokemonFromDeckOnBench": {
           const [name] = effect.a;
           const c = me.deck.find((x) => x.name === name);
-          if (me.bench.length < this.rules.maxBench && c != null) {
+          if (me.bench.length < this.benchMax(me) && c != null) {
             this.removeCard(me.deck, c.id);
             this.putOnBench(p, c);
             this.note(`山札から「${c.name}」をベンチに出した`);
