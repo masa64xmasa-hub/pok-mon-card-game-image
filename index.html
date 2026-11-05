@@ -1401,7 +1401,7 @@ function renderBattleScreen(){
   var zoneIn=zoneH-8;
   var pileW=Math.max(30,Math.min(activeW,Math.floor(((zoneIn-30-34)/2)*0.716)));
   var prizeW=Math.floor(activeW*0.6),zoneW=Math.max(2*prizeW+14,pileW+16),mainW=W;
-  var benchW=Math.floor(Math.max(34,Math.min((benchRowH-18)*0.716,(W-2*zoneW-24)/5-8)));
+  var benchW=Math.floor(Math.max(34,Math.min((benchRowH-18)*0.716,(W-2*zoneW-24)/Math.max(5,g.benchMax(g.players[0]),g.benchMax(g.players[1]),g.players[0].bench.length,g.players[1].bench.length)-8)));
   var SEAT=B.me||0,me=g.players[SEAT],op=g.players[1-SEAT],myTurn=g.currentPlayer===SEAT;
   if(g.turnNumber!==UI.lastTurn){UI.lastTurn=g.turnNumber;showBanner("ターン"+g.turnNumber+"　"+(myTurn?"あなたの番":"相手の番"))}
   var acts=myActs(),canAct=acts.length>0;
@@ -1457,7 +1457,7 @@ function renderBattleScreen(){
     s.bench.forEach(function(pk,i){
       var t=pokeTile(pk,benchW,isMine);t.dataset.slot="b"+i;
       t.onclick=function(){if(isMine)pokeMenu(pk,{k:"b",i:i});else cardDetail(pk.top)};r.appendChild(t)});
-    for(var k=s.bench.length;k<5;k++)r.appendChild(empty(benchW));
+    for(var k=s.bench.length;k<Math.max(5,g.benchMax(s));k++)r.appendChild(empty(benchW));
     return r;
   }
   // 本物のポケカの並び: 手前(自分)は 左=サイド / 中央=バトル場 / 右=山札・トラッシュ。相手側は向かい合わせで左右が逆
