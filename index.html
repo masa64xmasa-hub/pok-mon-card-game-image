@@ -1352,7 +1352,15 @@ function renderBattleScreen(){
   var acts=myActs(),canAct=acts.length>0;
 
   var endIdx=-1;acts.forEach(function(a,k){if(a.t==="endTurn")endIdx=k});
-  var eb=document.createElement("button");eb.className="endbtn";eb.textContent="ターン終了";eb.disabled=endIdx<0;eb.onclick=function(){runAct(endIdx)};
+  var eb=document.createElement("button");eb.className="endbtn";eb.textContent="ターン終了";eb.disabled=endIdx<0;eb.onclick=function(){
+    // まだ攻撃・エネルギーのつけ忘れ・進化ができるなら、ターンを終える前に確認する
+    var has={};acts.forEach(function(a){has[a.t]=1});
+    var w=[];if(has.attack)w.push("ワザを使えます");if(has.attachEnergy)w.push("エネルギーをまだつけていません");if(has.evolve)w.push("進化できるポケモンがいます");
+    if(!w.length){runAct(endIdx);return}
+    dialog("<h3 style='margin:0 0 6px'>ターンを終えますか？</h3><p style='margin:0 0 8px'>まだできることがあります:<br>・"+w.map(esc).join("<br>・")+"</p><div class='row'><button class='btn' id='endBack'>もどる</button><button class='btn sub' id='endGo'>ターンを終える</button></div>");
+    $("endBack").onclick=function(){$("dlg").close?$("dlg").close():$("dlg").removeAttribute("open")};
+    $("endGo").onclick=function(){$("dlg").close?$("dlg").close():$("dlg").removeAttribute("open");runAct(endIdx)};
+  };
   var root=document.createElement("div");root.className="bf";root.style.height=H+"px";root.style.gridTemplateColumns="1fr";
   var mainc=document.createElement("div");mainc.className="bmain";
   var field=document.createElement("div");field.className="field";
