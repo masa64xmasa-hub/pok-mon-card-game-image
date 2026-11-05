@@ -294,7 +294,7 @@ body.inbattle .gchg{touch-action:pan-y}
   <section id="t-battle" hidden></section>
   <section id="t-friend" hidden></section>
 </main>
-<footer style="text-align:center;padding:6px 12px 30px"><button class="btn sub sm" id="bkBtn">バックアップを書き出す</button> <button class="btn sub sm" id="rsBtn">バックアップから復元</button> <button class="btn sub sm" id="wipeBtn" style="color:#d02020;background:rgba(208,32,32,.1)">全てのデータを削除</button></footer>
+<footer style="text-align:center;padding:160px 12px 24px"><button id="wipeBtn" style="font:inherit;font-size:.62rem;color:#888;opacity:.3;background:none;border:0;padding:6px 10px;cursor:pointer">データを削除</button></footer>
 <dialog id="dlg"><div id="dlgbody"></div><div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn sub sm" id="dlgclose">閉じる</button></div></dialog>
 
 <script src="engine.js"></script>
@@ -2025,29 +2025,6 @@ function backupText(){
   try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.indexOf("pk_")===0)o.ls[k]=localStorage.getItem(k)}}catch(e){}
   return JSON.stringify(o);
 }
-$("bkBtn").onclick=function(){
-  var txt=backupText();
-  dialog("<h3 style='margin:0 0 6px'>バックアップを書き出す</h3><p class='muted' style='margin:0 0 6px'>持っているカード・デッキ・所持金・名前などがすべて入っています。ファイルに保存するか、文字をコピーしてメモなどに残してください。他人には見せないでください（友だちのコードや名前の権利も入っています）。</p><textarea id='bkText' readonly style='width:100%;height:90px;font-size:11px'></textarea><div class='row' style='margin-top:8px'><button class='btn' id='bkFile'>ファイルに保存</button><button class='btn sub' id='bkCopy'>コピー</button></div>");
-  var ta=$("bkText");ta.value=txt;
-  $("bkCopy").onclick=function(){copyText(txt,ta)};
-  $("bkFile").onclick=function(){
-    try{var b=new Blob([txt],{type:"application/json"}),a=document.createElement("a"),d=new Date();
-      a.href=URL.createObjectURL(b);a.download="pkbig-backup-"+d.getFullYear()+("0"+(d.getMonth()+1)).slice(-2)+("0"+d.getDate()).slice(-2)+".json";document.body.appendChild(a);a.click();setTimeout(function(){a.remove();URL.revokeObjectURL(a.href)},1000)}catch(e){toast("保存できませんでした。コピーを使ってください")}};
-};
-$("rsBtn").onclick=function(){
-  dialog("<h3 style='margin:0 0 6px'>バックアップから復元</h3><p class='warn' style='margin:0 0 6px'>いまこの端末にあるデータは、すべて置きかわります。</p><input type='file' id='rsFile' accept='.json,application/json,text/plain' style='margin-bottom:6px'><textarea id='rsText' placeholder='ファイルを選ぶか、バックアップの文字をここにはりつけ' style='width:100%;height:90px;font-size:11px'></textarea><p id='rsMsg' class='muted' style='margin:6px 0'></p><div class='row'><button class='btn' id='rsGo'>復元する</button></div>");
-  $("rsFile").onchange=function(){var f=this.files&&this.files[0];if(!f)return;var r=new FileReader();r.onload=function(){$("rsText").value=String(r.result||"")};r.readAsText(f)};
-  $("rsGo").onclick=function(){
-    var o=null;try{o=JSON.parse($("rsText").value)}catch(e){}
-    if(!o||o.app!=="pkbig"||!o.ls||typeof o.ls!=="object"){$("rsMsg").textContent="バックアップとして読めません。書き出したものを、そのままはりつけてください";return}
-    var st=null;try{st=JSON.parse(o.ls[KEY])}catch(e){}
-    if(!st||!st.owned){$("rsMsg").textContent="ゲームのデータが入っていないバックアップです";return}
-    try{frDisconnect()}catch(e){}
-    try{var ks=[];for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.indexOf("pk_")===0)ks.push(k)}ks.forEach(function(k){localStorage.removeItem(k)});
-      Object.keys(o.ls).forEach(function(k){if(k.indexOf("pk_")===0&&typeof o.ls[k]==="string")localStorage.setItem(k,o.ls[k])})}catch(e){$("rsMsg").textContent="復元できませんでした";return}
-    location.reload();
-  };
-};
 $("wipeBtn").onclick=function(){
   dialog("<h3 style='margin:0 0 6px'>全てのデータを削除</h3><p>持っているカード・デッキ・所持金・名前・ランクの記録への紐づけなど、この端末に保存されているデータを全部消して、最初の状態に戻します。<b>元に戻せません。</b></p><p class='muted' style='font-size:.8rem'>※ サーバー側のレートやフレンドの記録は消えませんが、この端末との紐づけが切れるため、同じ名前でも続きは使えなくなります。</p><div class='row'><button class='btn sm' id='wipeOk' style='background:#d02020'>全部削除する</button></div>");
   $("wipeOk").onclick=function(){
