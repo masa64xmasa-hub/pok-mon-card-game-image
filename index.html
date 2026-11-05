@@ -258,6 +258,13 @@ body.inbattle .gchg{touch-action:pan-y}
 .gcz{position:absolute;right:4px;bottom:4px;border:0;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font-size:.85rem;padding:3px 7px}
 .gchf{display:flex;gap:10px;justify-content:center;padding-top:8px}
 .gchf .btn{min-width:140px}
+.handfan{position:absolute;left:0;right:0;bottom:0;z-index:20;pointer-events:none;overflow:visible}
+.handfan .hcard.fan{position:absolute;opacity:1;pointer-events:auto;box-shadow:0 2px 8px rgba(0,0,0,.45);transition:transform .12s,bottom .12s}
+.handfan .hcard.fan:not(.usable){filter:brightness(.8)}
+.handfan.hdrag{opacity:.2}
+.handfan.hdrag .hcard{pointer-events:none}
+.hcard.fan.dragging{opacity:.25}
+.gcz.dz{top:4px;bottom:auto;right:4px}
 </style>
 </head>
 <body>
@@ -299,7 +306,7 @@ Object.keys(CARDS).forEach(function(id){var c=CARDS[id];ART[c[1]]={id:+id,name:c
 Object.keys(DATA.mirror).forEach(function(mi){var id=4000+DATA.mirror[mi],base=CARDS[id];if(base)ART["SD100_M_"+mi]={id:+id,name:base[0],mirror:true,kind:base[2]}});
 Object.keys(DATA.variants).forEach(function(art){var id=DATA.variants[art],base=CARDS[id];if(base)ART[art]={id:id,name:base[0],mirror:art.indexOf("_mirror_")>=0,kind:base[2]}});
 Object.keys(MIRROR_E_REV).forEach(function(img){var t=MIRROR_E_REV[img];ART[img]={id:0,name:"基本"+typeName(t)+"エネルギー",mirror:true,kind:"e",etype:t}});
-function typeName(t){for(var i=0;i<TYPES.length;i++)if(TYPES[i][0]===t)return TYPES[i][1];return t}
+function typeName(t){for(var i=0;i<TYPES.length;i++)if(TYPES[i][0]===t)return TYPES[i][1];return t==="colorless"?"無":t==="dragon"?"龍":t==="fairy"?"妖":t}
 function typeColor(t){for(var i=0;i<TYPES.length;i++)if(TYPES[i][0]===t)return TYPES[i][2];return "#888"}
 
 var S=load();
@@ -1031,6 +1038,16 @@ function renderDeck(){
     r.appendChild(e);r.appendChild(u);r.appendChild(cb);r.appendChild(x);c.appendChild(r);g.appendChild(c)});
   el.appendChild(g);
 }
+function deckCardDetail(k){
+  function show(){
+    var c;
+    if(k.indexOf("E:")===0){var ty=k.slice(2);c={name:nameOf(k),energyType:ty,imageName:"",data:null}}
+    else{var a=ART[k],d=a&&PK.catalog(a.id);if(!d){toast("詳細を読み込めませんでした");return}c={name:d.name,imageName:k,data:d,energyType:null}}
+    cardDetail(c);
+  }
+  if(typeof PK!=="undefined"&&PK.catalog&&PK.catalog(29)){show();return}
+  engineLoad(function(err){if(err){toast("詳細を読み込めませんでした");return}show()});
+}
 function sameNameCount(d,name,exceptKey){var n=0;Object.keys(d.items).forEach(function(k){var a=ART[k];if(a&&a.kind!=="e"&&a.name===name)n+=d.items[k]});return n}
 function renderEditor(el,d){
   var top=document.createElement("div");top.className="row sticky";
@@ -1057,7 +1074,11 @@ function renderEditor(el,d){
     var m=document.createElement("button");m.textContent="−";m.onclick=function(){change(k,-1)};
     var s=document.createElement("span");s.textContent=(d.items[k]||0)+(limitText||"");
     var p=document.createElement("button");p.textContent="＋";p.onclick=function(){change(k,1)};
-    c.appendChild(m);c.appendChild(s);c.appendChild(p);t.appendChild(c);return t;
+    c.appendChild(m);c.appendChild(s);c.appendChild(p);t.appendChild(c);
+    var z=document.createElement("button");z.className="gcz dz";z.textContent="🔍";z.setAttribute("aria-label","カードの詳細");
+    z.onclick=function(e){e.stopPropagation();deckCardDetail(k)};t.appendChild(z);
+    t.onclick=function(e){if(e.target.closest(".ctl"))return;deckCardDetail(k)};
+    return t;
   }
   function draw(){
     upd();inDeck.innerHTML="";var g=document.createElement("div");g.className="grid";
@@ -1191,7 +1212,7 @@ function _pdEnd(){setTimeout(function(){_PD=false;if(_pendDraw){_pendDraw=false;
 document.addEventListener("pointerup",_pdEnd,true);document.addEventListener("pointercancel",_pdEnd,true);
 function draw(){if(_PD&&Date.now()-_pdT<1500){_pendDraw=true;setTimeout(draw,1600);return}if(_drawQ)return;_drawQ=true;requestAnimationFrame(function(){_drawQ=false;if(!$("t-battle").hidden)renderBattle()})}
 // ===== Swift風 対戦画面 =====
-var UI={seen:new WeakMap(),lastTurn:-1,drag:null,handOpen:false};
+var UI={seen:new WeakMap(),lastTurn:-1,drag:null,handOpen:true,handSel:-1};
 function slotEq(a,b){return a&&b&&a.k===b.k&&(a.k==="a"||a.i===b.i)}
 function slotAttr(s){return s.k==="a"?"a":"b"+s.i}
 function closeOvl(){var o=document.getElementById("ovl");if(o)o.remove()}
@@ -1320,10 +1341,9 @@ function handDragStart(ev,i,c,el){
     window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",up);window.removeEventListener("pointercancel",up);
     document.querySelectorAll(".hl").forEach(function(n){n.classList.remove("hl")});
     var hint=document.getElementById("bhint");if(hint)hint.classList.remove("on");
-    if(fly)fly.remove();el.classList.remove("dragging");var ho1=document.getElementById("handov");if(ho1)ho1.classList.remove("hdrag");
-    if(!started){handMenu(i,c);return}
-    var ho=document.getElementById("handov");if(ho)ho.style.pointerEvents="none";
-    var under=document.elementFromPoint(e.clientX,e.clientY);if(ho)ho.style.pointerEvents="";
+    if(fly)fly.remove();el.classList.remove("dragging");
+    if(!started){if(UI.handSel===i){UI.handSel=-1;handMenu(i,c)}else{UI.handSel=i;draw()}return}
+    var under=document.elementFromPoint(e.clientX,e.clientY);var ho1=document.getElementById("handov");if(ho1)ho1.classList.remove("hdrag");
     var slotEl=under&&under.closest("#t-battle .mine [data-slot]");
     var hit=null;
     if(slotEl){list.forEach(function(x){if(!hit&&x.a.target&&slotAttr(x.a.target)===slotEl.dataset.slot)hit=x})}
@@ -1431,7 +1451,7 @@ function renderBattleScreen(){
   var lb=document.createElement("button");lb.className="lnkbtn";lb.textContent="ログ";lb.onclick=function(){
     var bx=document.createElement("div");bx.className="zoom logbox";bx.innerHTML="<div class='ztext'><b>ログ</b><div class='fulllog'>"+B.log.slice(-200).map(esc).join("<br>")+"</div></div>";openOvl(bx);var f=bx.querySelector(".fulllog");f.scrollTop=f.scrollHeight};
   ctl.appendChild(qb);ctl.appendChild(lb);strip.appendChild(ctl);
-  var hb=document.createElement("button");hb.className="mbtn handbtn";hb.textContent=(UI.handOpen?"手札を閉じる":"手札")+"（"+me.hand.length+"）";hb.onclick=function(){UI.handOpen=!UI.handOpen;draw()};strip.appendChild(hb);
+  var hb=document.createElement("button");hb.className="mbtn handbtn";hb.textContent=(UI.handOpen?"手札を隠す":"手札を出す")+"（"+me.hand.length+"）";hb.onclick=function(){UI.handOpen=!UI.handOpen;draw()};strip.appendChild(hb);
   var tinfo=document.createElement("span");tinfo.className="muted";tinfo.style.fontSize=".7rem";tinfo.textContent="ターン"+g.turnNumber+"・"+(myTurn?"あなたの番":"相手の番");strip.appendChild(tinfo);
   if(g.stadiumCard){var chip=document.createElement("button");chip.className="chip";chip.innerHTML="🏟 "+esc(g.stadiumCard.name)+" <span class='muted'>"+(g.stadiumOwner===SEAT?"（自分）":"（相手）")+"</span> <span class='lnk'>ⓘ 効果を見る</span>";chip.onclick=function(){cardDetail(g.stadiumCard)};strip.appendChild(chip)}
   else{var ns=document.createElement("span");ns.className="muted";ns.style.cssText="font-size:.7rem;margin-left:auto";ns.textContent="スタジアムなし";strip.appendChild(ns)}
@@ -1440,12 +1460,21 @@ function renderBattleScreen(){
   field.appendChild(half(me,true,"あなた"));
   mainc.appendChild(field);
 
-  // 手札
-  var hand=document.createElement("div");hand.className="hand handov";hand.id="handov";hand.style.height=handH+"px";
-  var n=Math.max(me.hand.length,1),gap=4,cw=Math.floor(Math.max(30,Math.min((mainW-24-gap*(n-1))/n,(handH-10)*0.716,120)));
+  // 手札: 扇のように重ねて、画面の下に出す。タップで持ち上がって大きく見える（もう一度タップで使うメニュー）。ドラッグで盤面へ
+  var hand=document.createElement("div");hand.className="handfan";hand.id="handov";
+  var nh=me.hand.length,cw=Math.floor(Math.max(44,Math.min(120,W/9))),chh=Math.round(cw/0.716),peek=Math.round(chh*0.56);
+  hand.style.height=(peek+14)+"px";
+  var stepX=nh>1?Math.min(cw*0.92,(W-40-cw)/(nh-1)):0;
+  if(UI.handSel>=nh)UI.handSel=-1;
   me.hand.forEach(function(c,i){
     var usable=false;acts.forEach(function(a){if(a.handIndex===i)usable=true});
-    var hc=document.createElement("div");hc.className="hcard"+(usable?" usable":"");hc.style.width=cw+"px";
+    var off=i-(nh-1)/2,ang=nh>1?off*Math.min(4,36/nh):0,sel=(UI.handSel===i);
+    var hc=document.createElement("div");hc.className="hcard fan"+(usable?" usable":"")+(sel?" sel":"");hc.style.width=cw+"px";
+    hc.style.left=Math.round(W/2-cw/2+off*stepX)+"px";
+    hc.style.bottom=(sel?(chh*0.62)-chh*0.0:(-(chh-peek)+Math.round(Math.abs(off)*Math.abs(off)*0.35)))+"px";
+    if(sel){hc.style.bottom="6px";hc.style.zIndex=60;hc.style.transform="scale(1.35)";hc.style.transformOrigin="50% 100%"}
+    else hc.style.transform="rotate("+ang+"deg)";
+    hc.style.zIndex=sel?60:(10+i);
     hc.appendChild(cardFace(c));
     hc.onpointerdown=function(ev){if(ev.button>0)return;ev.preventDefault();handDragStart(ev,i,c,hc)};
     hand.appendChild(hc);
