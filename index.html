@@ -265,6 +265,12 @@ body.inbattle .gchg{touch-action:pan-y}
 .handfan.hdrag .hcard{pointer-events:none}
 .hcard.fan.dragging{opacity:.25}
 .gcz.dz{top:4px;bottom:auto;right:4px}
+.handfan .hcard.fan{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.handfan .hcard.fan.pk{filter:brightness(1.25);outline:3px solid #ffd54a;border-radius:6px}
+.hpeek{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);z-index:200;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:8px}
+.hpimg{width:min(52vw,300px,42vh*0.716);border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.7);overflow:hidden}
+.hpimg img,.hpimg>*{width:100%;display:block}
+.hptxt{background:rgba(0,0,0,.78);color:#fff;padding:5px 12px;border-radius:14px;font-size:.9rem;max-width:90vw;text-align:center}
 </style>
 </head>
 <body>
@@ -1324,34 +1330,63 @@ function pokeMenu(pk,slot){
   list.appendChild(actBtn("カードの詳細","sub",function(){cardDetail(pk.top)}));
   tx.appendChild(list);box.appendChild(tx);openOvl(box);
 }
-function handDragStart(ev,i,c,el){
-  var acts=myActs(),list=[];acts.forEach(function(a,k){if(a.handIndex===i)list.push({a:a,i:k})});
-  var sx=ev.clientX,sy=ev.clientY,started=false,fly=null;
-  function targetsOf(){var s=[];list.forEach(function(x){if(x.a.target)s.push(slotAttr(x.a.target))});return s}
+function handDragStart(ev,i0,c0,el0){
+  // 長押し→大きく表示／左右になぞると別のカードに切替／上へドラッグで使う。すばやく上へ引いても使える。タップはメニュー。
+  var sx=ev.clientX,sy=ev.clientY,cur=i0,mode="wait",fly=null,peek=null,timer=null;
+  var fan=document.getElementById("handov"),cards=fan?Array.prototype.slice.call(fan.children):[];
+  var topY=fan?fan.getBoundingClientRect().top:sy;
+  function hand(){var g=B.game;return g?g.players[B.me||0].hand:[]}
+  function listOf(i){var l=[];myActs().forEach(function(a,k){if(a.handIndex===i)l.push({a:a,i:k})});return l}
+  function nearest(x){var best=cur,bd=1e9;cards.forEach(function(n,k){var r=n.getBoundingClientRect(),d=Math.abs(x-(r.left+r.width/2));if(d<bd){bd=d;best=k}});return best}
+  function showPeek(){
+    var c=hand()[cur];if(!c)return;
+    if(!peek){peek=document.createElement("div");peek.className="hpeek";document.body.appendChild(peek)}
+    peek.innerHTML="";var im=document.createElement("div");im.className="hpimg";im.appendChild(cardFace(c));peek.appendChild(im);
+    var l=listOf(cur),t=document.createElement("div");t.className="hptxt";
+    t.textContent=c.name+(l.length?"　↑ 上へドラッグで使う":"　（いまは使えません）");peek.appendChild(t);
+    cards.forEach(function(n,k){n.classList.toggle("pk",k===cur)});
+  }
+  function startDrag(e){
+    var list=listOf(cur);if(!list.length){return false}
+    mode="drag";if(peek){peek.remove();peek=null}
+    cards.forEach(function(n,k){n.classList.remove("pk");if(k===cur)n.classList.add("dragging")});
+    if(fan)fan.classList.add("hdrag");
+    fly=document.createElement("div");fly.className="fly";fly.appendChild(cardFace(hand()[cur]));document.body.appendChild(fly);
+    var ts=[];list.forEach(function(x){if(x.a.target)ts.push(slotAttr(x.a.target))});
+    document.querySelectorAll("#t-battle .mine [data-slot]").forEach(function(n){if(ts.indexOf(n.dataset.slot)>=0)n.classList.add("hl")});
+    var hint=document.getElementById("bhint");if(hint)hint.classList.add("on");
+    return true}
+  timer=setTimeout(function(){if(mode==="wait"){mode="peek";showPeek()}},320);
   function move(e){
-    if(!started&&Math.hypot(e.clientX-sx,e.clientY-sy)>10&&list.length){
-      started=true;el.classList.add("dragging");var ho0=document.getElementById("handov");if(ho0)ho0.classList.add("hdrag");
-      fly=document.createElement("div");fly.className="fly";fly.appendChild(cardFace(c));document.body.appendChild(fly);
-      var ts=targetsOf();document.querySelectorAll("#t-battle .mine [data-slot]").forEach(function(n){if(ts.indexOf(n.dataset.slot)>=0)n.classList.add("hl")});
-      var hint=document.getElementById("bhint");if(hint)hint.classList.add("on");
+    var dx=e.clientX-sx,dy=e.clientY-sy;
+    if(mode==="wait"){
+      var d=Math.hypot(dx,dy);if(d<10)return;
+      if(dy<-10&&Math.abs(dy)>Math.abs(dx)){clearTimeout(timer);if(!startDrag(e)){mode="peek";showPeek()}}
+      else{clearTimeout(timer);mode="peek";showPeek()}
     }
-    if(fly){fly.style.left=e.clientX+"px";fly.style.top=e.clientY+"px"}
+    if(mode==="peek"){
+      if(e.clientY<topY-30&&startDrag(e)){}
+      else{var k=nearest(e.clientX);if(k!==cur){cur=k;showPeek()}}
+    }
+    if(mode==="drag"&&fly){fly.style.left=e.clientX+"px";fly.style.top=e.clientY+"px"}
   }
   function up(e){
+    clearTimeout(timer);
     window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",up);window.removeEventListener("pointercancel",up);
     document.querySelectorAll(".hl").forEach(function(n){n.classList.remove("hl")});
     var hint=document.getElementById("bhint");if(hint)hint.classList.remove("on");
-    if(fly)fly.remove();el.classList.remove("dragging");
-    if(!started){if(UI.handSel===i){UI.handSel=-1;handMenu(i,c)}else{UI.handSel=i;draw()}return}
-    var under=document.elementFromPoint(e.clientX,e.clientY);var ho1=document.getElementById("handov");if(ho1)ho1.classList.remove("hdrag");
+    if(fly)fly.remove();if(peek)peek.remove();
+    cards.forEach(function(n){n.classList.remove("dragging");n.classList.remove("pk")});
+    if(mode==="wait"){handMenu(i0,c0);return}
+    if(mode==="peek"){return}
+    var under=document.elementFromPoint(e.clientX,e.clientY);if(fan)fan.classList.remove("hdrag");
+    var list=listOf(cur),c=hand()[cur];
     var slotEl=under&&under.closest("#t-battle .mine [data-slot]");
     var hit=null;
     if(slotEl){list.forEach(function(x){if(!hit&&x.a.target&&slotAttr(x.a.target)===slotEl.dataset.slot)hit=x})}
     if(!hit&&under&&under.closest("#t-battle .field")){list.forEach(function(x){if(!hit&&!x.a.target)hit=x})}
     if(hit){runAct(hit.i)}
-    else if(under&&under.closest("#t-battle .field")){
-      // ベンチ等の空きにエネルギー等を落としたときは、メニューを出す
-      handMenu(i,c)}
+    else if(under&&under.closest("#t-battle .field")&&c){handMenu(cur,c)}
   }
   window.addEventListener("pointermove",move);window.addEventListener("pointerup",up);window.addEventListener("pointercancel",up);
 }
@@ -1462,13 +1497,13 @@ function renderBattleScreen(){
 
   // 手札: 扇のように重ねて、画面の下に出す。タップで持ち上がって大きく見える（もう一度タップで使うメニュー）。ドラッグで盤面へ
   var hand=document.createElement("div");hand.className="handfan";hand.id="handov";
-  var nh=me.hand.length,cw=Math.floor(Math.max(44,Math.min(120,W/9))),chh=Math.round(cw/0.716),peek=Math.round(chh*0.56);
+  var nh=me.hand.length,cw=Math.floor(Math.max(48,Math.min(130,W/8))),chh=Math.round(cw/0.716),peek=Math.round(chh*0.56);
   hand.style.height=(peek+14)+"px";
-  var stepX=nh>1?Math.min(cw*0.92,(W-40-cw)/(nh-1)):0;
+  var stepX=nh>1?Math.min(cw*0.36,(W-40-cw)/(nh-1)):0;
   if(UI.handSel>=nh)UI.handSel=-1;
   me.hand.forEach(function(c,i){
     var usable=false;acts.forEach(function(a){if(a.handIndex===i)usable=true});
-    var off=i-(nh-1)/2,ang=nh>1?off*Math.min(4,36/nh):0,sel=(UI.handSel===i);
+    var off=i-(nh-1)/2,ang=nh>1?off*Math.min(4,36/nh):0,sel=false;
     var hc=document.createElement("div");hc.className="hcard fan"+(usable?" usable":"")+(sel?" sel":"");hc.style.width=cw+"px";
     hc.style.left=Math.round(W/2-cw/2+off*stepX)+"px";
     hc.style.bottom=(sel?(chh*0.62)-chh*0.0:(-(chh-peek)+Math.round(Math.abs(off)*Math.abs(off)*0.35)))+"px";
