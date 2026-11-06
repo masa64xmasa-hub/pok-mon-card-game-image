@@ -286,6 +286,11 @@ body.inbattle .gchg{touch-action:pan-y}
 .pgbar{height:8px;border-radius:4px;background:rgba(127,127,127,.25);overflow:hidden;margin-top:3px}
 .pgbar i{display:block;height:100%;background:#4caf50}
 .btn.on{outline:2px solid #ffd54a}
+.ovl img{-webkit-user-drag:none;user-select:none;-webkit-touch-callout:none}
+.cnav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.zoom.slidein-r{animation:slr .18s ease-out}.zoom.slidein-l{animation:sll .18s ease-out}
+@keyframes slr{from{opacity:.2;transform:translateX(40px)}to{opacity:1;transform:none}}
+@keyframes sll{from{opacity:.2;transform:translateX(-40px)}to{opacity:1;transform:none}}
 </style>
 </head>
 <body>
@@ -943,6 +948,67 @@ function openPack(defer,free){
   if(!defer)renderPack();
   return lastOpen;
 }
+
+// ---------- 絞り込み（コレクション・デッキ構築で共通） ----------
+var colFilter={set:"all",rar:"all",kind:"all",q:""},deckFilter={set:"all",rar:"all",kind:"all",q:""};
+function filterRow(F,onChange){
+  var f=document.createElement("div");f.className="row";f.style.margin="6px 0 10px";
+  function sel(opts,val,cb){var s=document.createElement("select");opts.forEach(function(o){var op=document.createElement("option");op.value=o[0];op.textContent=o[1];if(o[0]===val)op.selected=true;s.appendChild(op)});s.onchange=function(){cb(s.value);onChange()};return s}
+  f.appendChild(sel([["all","弾：すべて"],["M1L","M1L"],["M1S","M1S"],["M2","M2"],["M2a","M2a"],["SD100","SD100"]],F.set,function(v){F.set=v}));
+  f.appendChild(sel([["all","レアリティ：すべて"]].concat(RAR.map(function(r,i){return [String(i),r.label]})),F.rar,function(v){F.rar=v}));
+  f.appendChild(sel([["all","種類：すべて"],["p","ポケモン"],["t","トレーナーズ"],["e","エネルギー"]],F.kind,function(v){F.kind=v}));
+  var q=document.createElement("input");q.type="search";q.placeholder="名前で探す";q.value=F.q;q.setAttribute("aria-label","名前で探す");
+  q.oninput=function(){F.q=q.value;clearTimeout(q._t);q._t=setTimeout(onChange,200)};f.appendChild(q);
+  if(F.set!=="all"||F.rar!=="all"||F.kind!=="all"||F.q){var rs=document.createElement("button");rs.className="btn sm sub";rs.textContent="✕ 解除";rs.onclick=function(){F.set="all";F.rar="all";F.kind="all";F.q="";onChange(true)};f.appendChild(rs)}
+  return f;
+}
+function passF(k,F){
+  var q=(F.q||"").trim();
+  if(k.indexOf("E:")===0){
+    if(F.set!=="all"||F.rar!=="all"||(F.kind!=="all"&&F.kind!=="e"))return false;
+    return !q||nameOf(k).indexOf(q)>=0;
+  }
+  var a=ART[k];if(!a)return false;
+  if(F.set!=="all"&&setOf(k)!==F.set)return false;
+  if(F.rar!=="all"&&String(rarityIdx(k))!==F.rar)return false;
+  if(F.kind!=="all"){var isE=a.kind==="e";if(F.kind==="e"){if(!isE)return false}else{if(isE)return false;if((F.kind==="p")!==(a.kind==="p"))return false}}
+  return !q||a.name.indexOf(q)>=0;
+}
+// ---------- カードの詳細（左右になぞると前後のカードへ） ----------
+function showCardNav(keys,i0){
+  var i=Math.max(0,Math.min(keys.length-1,i0|0)),ovl=null,sx=0,sy=0,tracking=false;
+  function cardOf(k){
+    if(k.indexOf("E:")===0)return{name:nameOf(k),energyType:k.slice(2),imageName:"",data:null};
+    var a=ART[k],d=a&&PK.catalog(a.id);return{name:d?d.name:nameOf(k),imageName:k,data:d||null,energyType:null};
+  }
+  function render(dir){
+    var k=keys[i],c=cardOf(k),z=zoomDetail(c),t=z.querySelector(".ztext");
+    if(t){
+      var own=S.owned[k]||0;
+      if(k.indexOf("E:")!==0){var pp=document.createElement("p");pp.className="muted";pp.textContent="持っている枚数: "+own+"枚"+(ART[k]&&ART[k].mirror?"（ミラー）":"");t.appendChild(pp)}
+      var b=document.createElement("button");b.className="btn sm sub";b.style.marginTop="8px";b.textContent="🐞 このカードの不具合を報告";b.onclick=function(){openFeedback(c.name)};t.appendChild(b);
+    }
+    if(keys.length>1){
+      var nav=document.createElement("div");nav.className="cnav";
+      var pv=document.createElement("button");pv.className="btn sm sub";pv.textContent="◀ 前";pv.disabled=i<=0;pv.onclick=function(e){e.stopPropagation();go(-1)};
+      var ct=document.createElement("span");ct.className="muted";ct.textContent=(i+1)+" / "+keys.length+"　（左右になぞっても切り替わります）";
+      var nx=document.createElement("button");nx.className="btn sm sub";nx.textContent="次 ▶";nx.disabled=i>=keys.length-1;nx.onclick=function(e){e.stopPropagation();go(1)};
+      nav.appendChild(pv);nav.appendChild(ct);nav.appendChild(nx);z.insertBefore(nav,z.firstChild);
+    }
+    if(dir)z.classList.add(dir>0?"slidein-r":"slidein-l");
+    if(!ovl||!document.body.contains(ovl)){ovl=openOvl(z,function(){detach()});attach()}
+    else{ovl.innerHTML="";ovl.appendChild(z)}
+  }
+  function go(d){var n=i+d;if(n<0||n>=keys.length)return;i=n;render(d)}
+  function dn(e){tracking=true;sx=e.clientX;sy=e.clientY}
+  function up(e){if(!tracking)return;tracking=false;var dx=e.clientX-sx,dy=e.clientY-sy;if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.5){go(dx<0?1:-1)}}
+  function key(e){if(!ovl||!document.body.contains(ovl)){detach();return}if(e.key==="ArrowRight")go(1);else if(e.key==="ArrowLeft")go(-1)}
+  function attach(){ovl.style.touchAction="pan-y";ovl.addEventListener("dragstart",function(e){e.preventDefault()});ovl.addEventListener("pointerdown",dn);ovl.addEventListener("pointerup",up);ovl.addEventListener("pointercancel",function(){tracking=false});document.addEventListener("keydown",key)}
+  function detach(){document.removeEventListener("keydown",key)}
+  function start(){if(!keys.length)return;render(0)}
+  if(typeof PK!=="undefined"&&PK.catalog&&PK.catalog(29)){start();return}
+  engineLoad(function(err){if(err){toast("詳細を読み込めませんでした");return}start()});
+}
 function sortedKeys(items){
   return Object.keys(items).sort(function(a,b){var A=keyOrder(a),B=keyOrder(b);return A-B||(a<b?-1:1)});
 }
@@ -1001,13 +1067,15 @@ function renderCol(){
   var keys=sortedKeys(S.owned).filter(function(k){return S.owned[k]>0});
   var total=0;keys.forEach(function(k){total+=S.owned[k]});
   var bar=document.createElement("div");bar.className="row sticky";
-  bar.innerHTML="<input id='colq' type='search' placeholder='名前で絞り込み' value='"+esc(colQ)+"' aria-label='名前で絞り込み'><span class='muted'>"+keys.length+"種類・"+total+"枚（基本エネルギーは数えません）</span>";
-  el.appendChild(bar);el.appendChild(colPanel(renderCol));
+  bar.innerHTML="<span class='muted'>"+keys.length+"種類・"+total+"枚（基本エネルギーは数えません）</span>";
+  el.appendChild(bar);el.appendChild(colPanel(renderCol));el.appendChild(filterRow(colFilter,function(full){if(full)renderCol();else fill()}));
   if(colF){var cf=document.createElement("div");cf.className="muted";cf.style.margin="6px 0";var pp=colF.split("|"),sn="";COLSETS.forEach(function(x){if(x[0]===pp[0])sn=x[1]});cf.innerHTML="絞り込み中: "+esc(sn)+" "+esc(COLRAR[pp[1]]||"")+" ";var cx=document.createElement("button");cx.className="btn sub sm";cx.textContent="✕ 解除";cx.onclick=function(){colF="";renderCol()};cf.appendChild(cx);el.appendChild(cf)}
   var g=document.createElement("div");g.className="grid";g.id="colgrid";el.appendChild(g);
-  function fill(){g.innerHTML="";var q=colQ.trim(),n=0;keys.forEach(function(k){if(q&&nameOf(k).indexOf(q)<0)return;if(colF){var gg=colGroupOf(k);if(!gg||gg[0]+"|"+gg[1]!==colF)return}n++;var t=tileFor(k,S.owned[k]);t.onclick=function(){dialog("<h3 style='margin:0 0 8px'>"+esc(nameOf(k))+(ART[k]&&ART[k].mirror?" <span class='badge'>ミラー</span>":"")+"</h3><p>持っている枚数: "+S.owned[k]+"枚</p>")};g.appendChild(t)});
+  function fill(){g.innerHTML="";var n=0,vis=[];
+    keys.forEach(function(k){if(!passF(k,colFilter))return;if(colF){var gg=colGroupOf(k);if(!gg||gg[0]+"|"+gg[1]!==colF)return}vis.push(k)});
+    vis.forEach(function(k,vi){n++;var t=tileFor(k,S.owned[k]);t.style.cursor="pointer";t.onclick=function(){showCardNav(vis,vi)};g.appendChild(t)});
     if(!n)g.innerHTML="<p class='muted'>"+(keys.length?"当てはまるカードがありません。":"まだカードがありません。パックを開けましょう。")+"</p>"}
-  fill();$("colq").oninput=function(e){colQ=e.target.value;fill()};
+  fill();
 }
 
 // ---------- デッキ ----------
@@ -1087,16 +1155,7 @@ function renderDeck(){
     r.appendChild(e);r.appendChild(u);r.appendChild(cb);r.appendChild(x);c.appendChild(r);g.appendChild(c)});
   el.appendChild(g);
 }
-function deckCardDetail(k){
-  function show(){
-    var c;
-    if(k.indexOf("E:")===0){var ty=k.slice(2);c={name:nameOf(k),energyType:ty,imageName:"",data:null}}
-    else{var a=ART[k],d=a&&PK.catalog(a.id);if(!d){toast("詳細を読み込めませんでした");return}c={name:d.name,imageName:k,data:d,energyType:null}}
-    cardDetail(c);
-  }
-  if(typeof PK!=="undefined"&&PK.catalog&&PK.catalog(29)){show();return}
-  engineLoad(function(err){if(err){toast("詳細を読み込めませんでした");return}show()});
-}
+function deckCardDetail(k,list){var l=list&&list.length?list:[k];showCardNav(l,Math.max(0,l.indexOf(k)))}
 function sameNameCount(d,name,exceptKey){var n=0;Object.keys(d.items).forEach(function(k){var a=ART[k];if(a&&a.kind!=="e"&&a.name===name)n+=d.items[k]});return n}
 function renderEditor(el,d){
   var top=document.createElement("div");top.className="row sticky";
@@ -1106,6 +1165,7 @@ function renderEditor(el,d){
   function upd(){var n=deckTotal(d);cnt.className=n===60?"okc":"warn";cnt.textContent=n+"/60枚"}
   var inDeck=document.createElement("div");el.appendChild(inDeck);
   var h2=document.createElement("h3");h2.textContent="持っているカードから足す";h2.style.margin="16px 0 6px";el.appendChild(h2);
+  var frow=filterRow(deckFilter,function(full){if(full){renderDeck();return}draw()});el.appendChild(frow);
   var pool=document.createElement("div");el.appendChild(pool);
   var info=document.createElement("p");info.className="muted";info.textContent="同じ名前は4枚まで（通常版とミラーの合計）。ACE SPECは1枚まで。基本エネルギーは何枚でも入ります。ミラーは持っている枚数まで。";el.appendChild(info);
   function change(k,delta){
@@ -1118,26 +1178,27 @@ function renderEditor(el,d){
     }
     if(next===0)delete d.items[k];else d.items[k]=next;save();draw();
   }
-  function ctlTile(k,limitText){
+  function ctlTile(k,limitText,lst){
     var t=tileFor(k,null,{ctl:true});var c=document.createElement("div");c.className="ctl";
     var m=document.createElement("button");m.textContent="−";m.onclick=function(){change(k,-1)};
     var s=document.createElement("span");s.textContent=(d.items[k]||0)+(limitText||"");
     var p=document.createElement("button");p.textContent="＋";p.onclick=function(){change(k,1)};
     c.appendChild(m);c.appendChild(s);c.appendChild(p);t.appendChild(c);
     var z=document.createElement("button");z.className="gcz dz";z.textContent="🔍";z.setAttribute("aria-label","カードの詳細");
-    z.onclick=function(e){e.stopPropagation();deckCardDetail(k)};t.appendChild(z);
-    t.onclick=function(e){if(e.target.closest(".ctl"))return;deckCardDetail(k)};
+    z.onclick=function(e){e.stopPropagation();deckCardDetail(k,lst)};t.appendChild(z);
+    t.onclick=function(e){if(e.target.closest(".ctl"))return;deckCardDetail(k,lst)};
     return t;
   }
   function draw(){
     upd();inDeck.innerHTML="";var g=document.createElement("div");g.className="grid";
-    sortedKeys(d.items).forEach(function(k){g.appendChild(ctlTile(k,""))});
+    var dl=sortedKeys(d.items);dl.forEach(function(k){g.appendChild(ctlTile(k,"",dl))});
     if(!Object.keys(d.items).length)inDeck.innerHTML="<p class='muted'>まだカードが入っていません。</p>";else inDeck.appendChild(g);
     pool.innerHTML="";var pg=document.createElement("div");pg.className="grid";
     // 基本エネルギー
-    TYPES.forEach(function(t){pg.appendChild(ctlTile("E:"+t[0],""))});
-    sortedKeys(S.owned).forEach(function(k){if(!(S.owned[k]>0))return;pg.appendChild(ctlTile(k," / "+S.owned[k]))});
-    pool.appendChild(pg);
+    var pl=[];TYPES.forEach(function(t){if(passF("E:"+t[0],deckFilter))pl.push("E:"+t[0])});
+    sortedKeys(S.owned).forEach(function(k){if(S.owned[k]>0&&passF(k,deckFilter))pl.push(k)});
+    pl.forEach(function(k){pg.appendChild(ctlTile(k,k.indexOf("E:")===0?"":" / "+S.owned[k],pl))});
+    if(!pl.length)pool.innerHTML="<p class='muted'>当てはまるカードがありません。</p>";else pool.appendChild(pg);
   }
   draw();
 }
