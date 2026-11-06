@@ -297,7 +297,7 @@ body.inbattle .gchg{touch-action:pan-y}
   <section id="t-battle" hidden></section>
   <section id="t-friend" hidden></section>
 </main>
-<footer style="text-align:center;padding:14px 12px 24px"><button class="btn sub sm" id="fbBtn" style="display:block;margin:0 auto 160px">🐞 不具合・ご意見を送る</button><button id="wipeBtn" style="font:inherit;font-size:.62rem;color:#888;opacity:.3;background:none;border:0;padding:6px 10px;cursor:pointer">データを削除</button></footer>
+<footer style="text-align:center;padding:14px 12px 24px"><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:10px"><button class="btn sub sm" id="svBtn">💾 セーブ</button><button class="btn sub sm" id="ldBtn">📂 ロード</button></div><button class="btn sub sm" id="fbBtn" style="display:block;margin:0 auto 160px">🐞 不具合・ご意見を送る</button><button id="wipeBtn" style="font:inherit;font-size:.62rem;color:#888;opacity:.3;background:none;border:0;padding:6px 10px;cursor:pointer">データを削除</button></footer>
 <dialog id="dlg"><div id="dlgbody"></div><div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn sub sm" id="dlgclose">閉じる</button></div></dialog>
 
 <script src="engine.js"></script>
@@ -2136,6 +2136,86 @@ function backupText(){
   return JSON.stringify(o);
 }
 $("fbBtn").onclick=function(){openFeedback("")};
+
+// ---------- セーブ／ロード（書き換えにくい暗号化つき） ----------
+// 中身はSHA-256で作った鍵ストリームで暗号化し、HMAC-SHA256の署名を付ける。1文字でも変えると読み込めない。
+// ※ 画面のコードだけで動く仕組みなので、プログラムを読み解ける人には破られる。ふつうの書き換え（文字を直す）を防ぐためのもの
+function bkSecret(){var a=["pk","·big","❖sv2","·","q7Zr","mA9x","†K3p","$4wL"];return new TextEncoder().encode(a.join("|")+(1234567*89).toString(36))}
+function bkCat(){var n=0,i;for(i=0;i<arguments.length;i++)n+=arguments[i].length;var o=new Uint8Array(n),k=0;for(i=0;i<arguments.length;i++){o.set(arguments[i],k);k+=arguments[i].length}return o}
+function bkSha(b){return crypto.subtle.digest("SHA-256",b).then(function(h){return new Uint8Array(h)})}
+function bkStream(nonce,len){
+  var n=Math.ceil(len/32),ps=[];
+  for(var i=0;i<n;i++){var c=new Uint8Array([i>>>24,(i>>>16)&255,(i>>>8)&255,i&255]);ps.push(bkSha(bkCat(bkSecret(),nonce,c)))}
+  return Promise.all(ps).then(function(hs){var o=new Uint8Array(len);hs.forEach(function(h,i){o.set(h.subarray(0,Math.min(32,len-i*32)),i*32)});return o});
+}
+function bkMac(nonce,cipher){
+  return crypto.subtle.importKey("raw",bkSecret(),{name:"HMAC",hash:"SHA-256"},false,["sign"]).then(function(k){return crypto.subtle.sign("HMAC",k,bkCat(nonce,cipher))}).then(function(m){return new Uint8Array(m).subarray(0,16)});
+}
+function bkToB64(b){var s="";for(var i=0;i<b.length;i+=8192)s+=String.fromCharCode.apply(null,b.subarray(i,i+8192));return btoa(s)}
+function bkFromB64(t){var s=atob(t),o=new Uint8Array(s.length);for(var i=0;i<s.length;i++)o[i]=s.charCodeAt(i);return o}
+function bkCollect(){var o={app:"pkbig",at:new Date().toISOString(),ls:{}};try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.indexOf("pk_")===0)o.ls[k]=localStorage.getItem(k)}}catch(e){}return o}
+function bkEncode(){
+  var plain=new TextEncoder().encode(JSON.stringify(bkCollect())),nonce=crypto.getRandomValues(new Uint8Array(16));
+  return bkStream(nonce,plain.length).then(function(ks){
+    var c=new Uint8Array(plain.length);for(var i=0;i<c.length;i++)c[i]=plain[i]^ks[i];
+    return bkMac(nonce,c).then(function(mac){return "PKSV2."+bkToB64(bkCat(new Uint8Array([2]),nonce,mac,c))});
+  });
+}
+function bkDecode(text){
+  text=String(text||"").replace(/\s+/g,"");
+  if(text.indexOf("PKSV2.")!==0)return Promise.reject(new Error("セーブコードではありません"));
+  var b;try{b=bkFromB64(text.slice(6))}catch(e){return Promise.reject(new Error("セーブコードが壊れています"))}
+  if(b.length<34||b[0]!==2)return Promise.reject(new Error("セーブコードが壊れています"));
+  var nonce=b.subarray(1,17),mac=b.subarray(17,33),c=b.subarray(33);
+  return bkMac(nonce,c).then(function(m2){
+    var ok=m2.length===mac.length,d=0;for(var i=0;i<m2.length;i++)d|=m2[i]^mac[i];
+    if(d!==0)throw new Error("コードが壊れているか、書き換えられています");
+    return bkStream(nonce,c.length);
+  }).then(function(ks){
+    var p=new Uint8Array(c.length);for(var i=0;i<p.length;i++)p[i]=c[i]^ks[i];
+    var o=JSON.parse(new TextDecoder().decode(p));
+    if(!o||o.app!=="pkbig"||!o.ls||typeof o.ls!=="object")throw new Error("セーブコードの中身が正しくありません");
+    var st=o.ls[KEY];if(st){var s2=JSON.parse(st);
+      if(!s2||typeof s2.owned!=="object"||!isFinite(s2.yen)||s2.yen<0||s2.yen>1e9)throw new Error("セーブコードの中身が正しくありません");
+      Object.keys(s2.owned).forEach(function(k){var v=s2.owned[k];if(!(Number.isInteger(v)&&v>=0&&v<=9999))throw new Error("セーブコードの中身が正しくありません")})}
+    return o;
+  });
+}
+function bkSupported(){return !!(window.crypto&&crypto.subtle&&window.TextEncoder)}
+function openSaveDialog(){
+  if(!bkSupported()){dialog("<p>このブラウザでは、セーブ機能が使えません（https のページで開いてください）。</p>");return}
+  dialog("<h3 style='margin:0 0 6px'>💾 セーブ</h3><p class='muted' style='margin:0 0 6px'>持っているカード・デッキ・所持金・設定などを、ひとつのコードにします。別の端末に移すときや、念のための控えに使えます。コードは書き換えられないようになっています。</p><p class='muted' id='svMsg'>作っています…</p><textarea id='svTx' rows='4' readonly style='width:100%;font-size:.7rem'></textarea><div class='row' style='margin-top:6px'><button class='btn sm' id='svCp'>コピーする</button><button class='btn sm sub' id='svDl'>ファイルに保存</button></div>");
+  bkEncode().then(function(code){
+    $("svTx").value=code;$("svMsg").textContent="できました（"+Math.round(code.length/1024)+"KB）。コピーするか、ファイルに保存してください。";
+    $("svCp").onclick=function(){copyText(code,$("svTx"));$("svMsg").textContent="コピーしました"};
+    $("svDl").onclick=function(){
+      var d=new Date(),n="pokeca-save-"+d.getFullYear()+("0"+(d.getMonth()+1)).slice(-2)+("0"+d.getDate()).slice(-2)+".txt";
+      var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([code],{type:"text/plain"}));a.download=n;document.body.appendChild(a);a.click();setTimeout(function(){a.remove()},500);
+    };
+  }).catch(function(e){$("svMsg").textContent="作れませんでした（"+e.message+"）"});
+}
+function openLoadDialog(){
+  if(!bkSupported()){dialog("<p>このブラウザでは、ロード機能が使えません（https のページで開いてください）。</p>");return}
+  dialog("<h3 style='margin:0 0 6px'>📂 ロード</h3><p class='muted' style='margin:0 0 6px'>セーブコードを貼り付けるか、保存したファイルを選んでください。<b>この端末のいまのデータは、すべて置き換わります。</b></p><textarea id='ldTx' rows='4' placeholder='PKSV2. から始まるコード' style='width:100%;font-size:.7rem'></textarea><div class='row' style='margin-top:6px'><input type='file' id='ldFile' accept='.txt,text/plain'><button class='btn sm' id='ldGo'>読み込む</button></div><p class='muted' id='ldMsg' style='min-height:1.2em;margin:6px 0 0'></p>");
+  $("ldFile").onchange=function(){var f=this.files[0];if(!f)return;var r=new FileReader();r.onload=function(){$("ldTx").value=String(r.result||"").trim()};r.readAsText(f)};
+  $("ldGo").onclick=function(){
+    var t=$("ldTx").value;if(!t.trim()){$("ldMsg").textContent="コードを貼り付けてください";return}
+    $("ldMsg").textContent="確認しています…";
+    bkDecode(t).then(function(o){
+      var n=0;try{n=Object.keys(JSON.parse(o.ls[KEY]).owned).length}catch(e){}
+      var yen="";try{yen=JSON.parse(o.ls[KEY]).yen}catch(e){}
+      $("dlgbody").innerHTML="<h3 style='margin:0 0 6px'>この内容で置き換えますか？</h3><p>セーブした日時: "+esc(String(o.at||"").replace("T"," ").slice(0,16))+"<br>カードの種類: "+n+"　所持金: "+yen+"円</p><p class='warn'>いまのこの端末のデータは消えます。</p><div class='row'><button class='btn sm' id='ldOk'>置き換える</button><button class='btn sm sub' id='ldNo'>やめる</button></div>";
+      $("ldNo").onclick=function(){var d=$("dlg");d.close?d.close():d.removeAttribute("open")};
+      $("ldOk").onclick=function(){
+        try{frDisconnect()}catch(e){}
+        try{var ks=[];for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.indexOf("pk_")===0)ks.push(k)}ks.forEach(function(k){localStorage.removeItem(k)});
+          Object.keys(o.ls).forEach(function(k){if(k.indexOf("pk_")===0&&typeof o.ls[k]==="string")localStorage.setItem(k,o.ls[k])})}catch(e){}
+        location.reload();
+      };
+    }).catch(function(e){$("ldMsg").textContent="読み込めません："+e.message});
+  };
+}
+$("svBtn").onclick=openSaveDialog;$("ldBtn").onclick=openLoadDialog;
 $("wipeBtn").onclick=function(){
   dialog("<h3 style='margin:0 0 6px'>全てのデータを削除</h3><p>持っているカード・デッキ・所持金・名前・ランクの記録への紐づけなど、この端末に保存されているデータを全部消して、最初の状態に戻します。<b>元に戻せません。</b></p><p class='muted' style='font-size:.8rem'>※ サーバー側のレートやフレンドの記録は消えませんが、この端末との紐づけが切れるため、同じ名前でも続きは使えなくなります。</p><div class='row'><button class='btn sm' id='wipeOk' style='background:#d02020'>全部削除する</button></div>");
   $("wipeOk").onclick=function(){
