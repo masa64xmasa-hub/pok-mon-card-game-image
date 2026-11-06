@@ -1244,7 +1244,7 @@ function fxFind(g,name){
 var _fxCache={};
 function fxRemember(g){try{[0,1].forEach(function(p){var pl=g.players[p];pl.hand.forEach(function(c){_fxCache[c.name]=c})})}catch(e){}}
 function fxLog(g,t){
-  if(!UI.fx||!B.running){return}
+  if(!UI.fx||!B.running||B.replaying){return}
   var m,who=null,card=null,label="";
   function owner(p){return p===(B.me||0)?"あなた":"相手"}
   if(m=/^プレイヤー(\d)は「(.+)」を使った$/.exec(t)){who=+m[1]-1;card=m[2];label="「"+card+"」を使った"}
@@ -1889,6 +1889,7 @@ if("serviceWorker" in navigator){
   navigator.serviceWorker.register("sw.js").catch(function(){});
   navigator.serviceWorker.addEventListener("message",function(e){if(e.data&&e.data.t==="openfriend"){showTab("friend");try{frConnect()}catch(x){}}});
 }
+setTimeout(checkResume,900);
 if(/[?&]friend=1/.test(location.search))setTimeout(function(){showTab("friend");try{frConnect()}catch(x){}},300);
 var _reclaimed=false;
 function frNoName(){
@@ -2104,7 +2105,7 @@ OnlineSession.prototype.socketFailed=function(){
   if(now>this.deadline){this.finish({ended:"failed",m:"通信が回復しませんでした"});return}
   this.setStatus("再接続中…");var self=this;setTimeout(function(){if(!self.ended&&!self.ws)self.open()},2000);
 };
-OnlineSession.prototype.failBefore=function(m){this.phase="failed";this.error=m;this.shutdownSocket();this.ended=true;this.onChange()};
+OnlineSession.prototype.failBefore=function(m){resumeClear();this.phase="failed";this.error=m;this.shutdownSocket();this.ended=true;this.onChange()};
 OnlineSession.prototype.shutdownSocket=function(){clearInterval(this.timer);this.timer=null;this.gen++;try{this.ws&&this.ws.close()}catch(e){}this.ws=null};
 OnlineSession.prototype.handle=function(text){
   var m;try{m=JSON.parse(text)}catch(e){return}
@@ -2117,28 +2118,28 @@ OnlineSession.prototype.handle=function(text){
     case"queued":this.phase="waiting";this.setStatus(this.isRank?"ランクマッチの相手を探しています…（レートの近い人と組みます。待つほど範囲が広がります）":"対戦相手を探しています…（同じように探している人と自動で組みます）");break;
     case"ready":this.phase="ready";this.setStatus(null);break;
     case"rejoined":{this.deadline=0;var ack=m.ack|0;for(var i=ack;i<this.tx.length;i++)this.rawSend(this.tx[i]);this.setStatus(m.peerOnline===false?"相手の接続が切れています…":null);break}
-    case"peer":this.setStatus(m.online===false?"相手の接続が切れています…（最大90秒待ちます）":null);break;
+    case"peer":this.setStatus(m.online===false?"相手の接続が切れています…（最大150秒待ちます）":null);break;
     case"msg":{var n=m.n|0;if(n!==this.rx)return;this.rx++;this.push({message:m.d});break}
     case"left":this.finish({ended:"opponentLeft"});break;
     case"forfeit":this.finish({ended:"opponentForfeit"});break;
     case"error":if(!this.haveRoom)this.failBefore(m.m||"通信エラー");else this.finish({ended:"failed",m:m.m||"通信エラー"});break;
   }
 };
-OnlineSession.prototype.send=function(d){if(this.ended)return;var s=JSON.stringify({t:"msg",n:this.tx.length,d:d});this.tx.push(s);if(this.ready)this.rawSend(s)};
+OnlineSession.prototype.send=function(d){if(this.ended)return;var s=JSON.stringify({t:"msg",n:this.tx.length,d:d});this.tx.push(s);if(this.persist)resumeSave(this);if(this.ready)this.rawSend(s)};
 OnlineSession.prototype.push=function(e){if(this.waiter){var w=this.waiter;this.waiter=null;w(e)}else this.q.push(e)};
 OnlineSession.prototype.next=function(){var self=this;return new Promise(function(res){if(self.q.length)res(self.q.shift());else if(self.terminal)res(self.terminal);else self.waiter=res})};
 OnlineSession.prototype.finish=function(end){
-  if(this.ended)return;this.ended=true;this.terminal=end;this.shutdownSocket();
+  if(this.ended)return;this.ended=true;resumeClear();this.terminal=end;this.shutdownSocket();
   if(this.waiter){var w=this.waiter;this.waiter=null;w(end)}
   if(this.onEnd)this.onEnd(end);this.onChange();
 };
 OnlineSession.prototype.leave=function(){
-  if(this.ended)return;if(this.ready)this.rawSend({t:"leave"});
+  if(this.ended)return;resumeClear();if(this.ready)this.rawSend({t:"leave"});
   var self=this;this.ended=true;this.terminal={ended:"selfLeft"};
   if(this.waiter){var w=this.waiter;this.waiter=null;w(this.terminal)}
   setTimeout(function(){self.shutdownSocket()},this.isRank?6000:1000);
 };
-OnlineSession.prototype.close=function(){var self=this;if(this.ended)return;this.ended=true;this.terminal={ended:"selfLeft"};setTimeout(function(){self.shutdownSocket()},this.isRank?15000:3000)};
+OnlineSession.prototype.close=function(){var self=this;if(this.ended)return;resumeClear();this.ended=true;this.terminal={ended:"selfLeft"};setTimeout(function(){self.shutdownSocket()},this.isRank?15000:3000)};
 OnlineSession.prototype.report=function(r){if(this.ready)this.rawSend({t:"rresult",r:r})};
 
 function syncHash(g){
@@ -2159,6 +2160,35 @@ function deckFromWire(w){
   return{cards:cards,energy:energy,arts:arts};
 }
 
+
+// ---------- 対戦の途中復帰（クラッシュ・再読み込みしても続きから） ----------
+// 対戦の途中経過（部屋の合言葉・自分の操作の記録）をこの端末に保存しておく。戻ったら、サーバーが覚えている相手の操作と合わせて、最初から素早く再現して続きにつなぐ。
+var RESUME_KEY="pk_resume",RESUME_MAXAGE=8*60*1000;
+function resumeSave(s){try{localStorage.setItem(RESUME_KEY,JSON.stringify({room:s.room,token:s.token,seat:s.seat,isRank:!!s.isRank,isRandom:!!s.isRandom,deck:s.mineWire,tx:s.tx,at:Date.now()}))}catch(e){}}
+function resumeClear(){try{localStorage.removeItem(RESUME_KEY)}catch(e){}}
+function resumeLoad(){try{var r=JSON.parse(localStorage.getItem(RESUME_KEY)||"null");if(!r||!r.room||!r.token||!Array.isArray(r.tx)||!r.deck)return null;if(Date.now()-(r.at||0)>RESUME_MAXAGE){resumeClear();return null}return r}catch(e){return null}}
+function resumeStart(r){
+  var mine=deckFromWire(r.deck);
+  if(!mine){resumeClear();toast("復帰できませんでした");return}
+  var s=new OnlineSession();B.os=s;B.osCode="";
+  s.room=r.room;s.token=r.token;s.seat=r.seat|0;s.isRank=!!r.isRank;s.isRandom=!!r.isRandom;s.haveRoom=true;s.phase="ready";s.tx=r.tx.slice();s.rx=0;s.mineWire=r.deck;s.persist=true;s._fired=true;
+  s.setStatus("復帰しています…");
+  showTab("battle");
+  s.onChange=function(){if(!B.running&&!$("t-battle").hidden)renderBattle()};
+  if(s.isRank){B.rankNote=null;s.onRdone=function(d){B.rankNote=d.ok?"レート "+d.before+" → "+d.rating+"（"+(d.delta>=0?"+":"")+d.delta+"）　"+d.w+"勝"+d.l+"敗"+(d.d?d.d+"分":""):d.m;if(FR.status==="online")frSend({t:"rank"});draw()}}
+  engineLoad(function(err){
+    if(err){resumeClear();toast("復帰できませんでした");return}
+    s.open();renderBattle();
+    onlineBegin(s,mine,{resume:true});
+  });
+}
+function checkResume(){
+  var r=resumeLoad();if(!r||B.running||B.os)return;
+  dialog("<h3 style='margin:0 0 6px'>⚔ 対戦の続きがあります</h3><p>オンライン対戦の途中で、画面が閉じたようです。続きから戻りますか？<br><span class='muted'>（相手は最大150秒待ってくれます。時間が過ぎていると、対戦は終わっています）</span></p><div class='row'><button class='btn' id='rsGo'>続きから戻る</button><button class='btn sub' id='rsNo'>あきらめる</button></div>");
+  var close=function(){var d=$("dlg");d.close?d.close():d.removeAttribute("open")};
+  $("rsGo").onclick=function(){close();resumeStart(r)};
+  $("rsNo").onclick=function(){close();resumeClear();toast("対戦をあきらめました")};
+}
 // ---------- オンライン対戦をはじめる ----------
 function onlineStart(mode,code){
   var dl=currentDeckList();if(!dl||PK.DeckList.validate(dl).length){toast("使えるデッキがありません");return}
@@ -2181,11 +2211,20 @@ function onlineWait(el){
   h+="<button class='btn sub' id='o-cancel'>"+(s.phase==="failed"?"もどる":"やめる")+"</button></div>";
   el.innerHTML=h;$("o-cancel").onclick=function(){s.leave();B.os=null;renderBattle()};
 }
-function onlineBegin(s,mine){
-  var seat=s.seat,seed=0;
-  var hello={k:"hello",dv:WEB_DV,deck:deckToWire(mine),name:myName()||"あなた"};
-  if(seat===0){seed=(Math.random()*4294967296)>>>0;hello.seed=String(seed)}
-  s.send(hello);
+function onlineBegin(s,mine,opts){
+  var seat=s.seat,seed=0,resume=!!(opts&&opts.resume),decs=[];
+  if(resume){
+    try{var all=s.tx.map(function(x){return JSON.parse(x).d});
+      if(seat===0)seed=Number(all[0].seed)>>>0;
+      decs=all.slice(1)}catch(e){s.finish({ended:"failed",m:"復帰できませんでした"});return}
+  }else{
+    var hello={k:"hello",dv:WEB_DV,deck:deckToWire(mine),name:myName()||"あなた"};
+    if(seat===0){seed=(Math.random()*4294967296)>>>0;hello.seed=String(seed)}
+    s.mineWire=deckToWire(mine);s.persist=true;
+    s.send(hello);
+  }
+  var ri=0;B.replaying=resume&&decs.length>0;
+  function chk(){if(B.replaying&&ri>=decs.length&&!s.q.length){B.replaying=false;draw()}}
   s.next().then(function(ev){
     if(ev.ended){B.os=null;B.result={win:false,text:onlineEndText(ev)};B.running=false;draw();return}
     var d=ev.message;
@@ -2199,8 +2238,12 @@ function onlineBegin(s,mine){
     var human={chooseAction:function(g,p,acts){return new Promise(function(res){B.pending={type:"action",actions:acts,res:res};draw()})},
       choose:function(g,p,req){return new Promise(function(res){B.pending={type:"choice",req:req,res:res};draw()})}};
     var local={
-      chooseAction:async function(g,p,acts){var h=syncHash(g),i=await human.chooseAction(g,p,acts);if(!B.cancelled)s.send({k:"a",v:i,h:h});return i},
-      choose:async function(g,p,req){var h=syncHash(g),a=await human.choose(g,p,req);if(!B.cancelled)s.send({k:"c",v:a==null?-1:a,h:h});return a}};
+      chooseAction:async function(g,p,acts){
+        if(ri<decs.length){var d=decs[ri++];if(!d||d.k!=="a"||!(d.v>=0&&d.v<acts.length)){s.finish({ended:"failed",m:"復帰できませんでした（記録が合いません）"});if(g.result==null)g.result={draw:true};return acts.length-1}chk();return d.v}
+        chk();var h=syncHash(g),i=await human.chooseAction(g,p,acts);if(!B.cancelled)s.send({k:"a",v:i,h:h});return i},
+      choose:async function(g,p,req){
+        if(ri<decs.length){var d=decs[ri++];if(!d||d.k!=="c"){s.finish({ended:"failed",m:"復帰できませんでした（記録が合いません）"});if(g.result==null)g.result={draw:true};return null}chk();return d.v<0?null:d.v}
+        chk();var h=syncHash(g),a=await human.choose(g,p,req);if(!B.cancelled)s.send({k:"c",v:a==null?-1:a,h:h});return a}};
     async function recv(g,kind){
       var h=syncHash(g);B.waiting=true;draw();var e=await s.next();B.waiting=false;
       if(e.ended)return undefined;
@@ -2213,6 +2256,7 @@ function onlineBegin(s,mine){
       chooseAction:async function(g,p,acts){
         var v=await recv(g,"a");
         if(v===undefined||B.cancelled){if(g.result==null)g.result={draw:true};return acts.length-1}
+        if(B.replaying){chk();return v}
         if(v>=0&&v<acts.length&&acts[v].t!=="endTurn")toast("相手: "+g.describe(acts[v],p));
         draw();await sleep(600);return v;
       },
