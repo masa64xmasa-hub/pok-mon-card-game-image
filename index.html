@@ -291,6 +291,7 @@ body.inbattle .gchg{touch-action:pan-y}
 .zoom.slidein-r{animation:slr .18s ease-out}.zoom.slidein-l{animation:sll .18s ease-out}
 @keyframes slr{from{opacity:.2;transform:translateX(40px)}to{opacity:1;transform:none}}
 @keyframes sll{from{opacity:.2;transform:translateX(-40px)}to{opacity:1;transform:none}}
+.favstar{position:absolute;right:4px;top:2px;color:#f5b400;text-shadow:0 0 3px #000,0 0 2px #000;font-size:1.1rem;line-height:1;pointer-events:none;z-index:3}
 .rbadge{position:absolute;left:4px;top:4px;font-weight:800;font-size:.68rem;border-radius:6px;padding:1px 6px;color:#fff;background:#546e7a;box-shadow:0 1px 3px rgba(0,0,0,.4);pointer-events:none}
 .rbadge.r3{background:#2e7d32}.rbadge.r4,.rbadge.r5{background:#1565c0}.rbadge.r6{background:#6a1b9a}.rbadge.r7{background:#e65100}
 .rbadge.r8{background:linear-gradient(90deg,#f9a825,#e91e63);}
@@ -405,6 +406,7 @@ function tileFor(name,count,opt){
   var a=ART[name];
   if(name.indexOf("E:")===0){var ty=name.slice(2);t.appendChild(energyEl(ty,false))}
   else{t.appendChild(imgEl(name));}
+  if(name.indexOf("E:")!==0&&isFav(name)&&!opt.flip){var st=document.createElement("span");st.className="favstar";st.textContent="★";t.appendChild(st)}
   if(count!=null&&!opt.ctl){var c=document.createElement("span");c.className="cnt";c.textContent="×"+count;t.appendChild(c)}
   if(name.indexOf("E:")!==0&&a&&!opt.nobadge){var ri=rarityIdx(name);if(ri>=2||(ri===1&&!opt.ctl&&false)){var bd=document.createElement("span");bd.className="rbadge r"+ri;bd.textContent=RAR[ri].label.replace("(ポケモン等)","").replace("(グッズ等)","");t.appendChild(bd)}}
   return t;
@@ -557,6 +559,7 @@ function renderPack(){
     var b=document.createElement("button");b.className=(k===packSet?"on":"");b.textContent=k==="SD100"?"スタートデッキ100":SETS[k].name;
     b.onclick=function(){packSet=k;renderPack()};sel.appendChild(b)});
   el.appendChild(sel);
+  renderDaily(el);
   var body=document.createElement("div");el.appendChild(body);
   if(packSet==="SD100")renderSD100Pack(body);else renderSetPack(body,SETS[packSet]);
 }
@@ -764,6 +767,7 @@ function openSetPack(cf,mode){
     if(a&&a.id>0)S.owned[c.art]=(S.owned[c.art]||0)+1;else lost++;
     counts[c.rarity]=(counts[c.rarity]||0)+1;
   });
+  var rareN=0;['AR','SR_Pokemon','SR_Goods','SAR','MA','MUR','RR'].forEach(function(r){rareN+=counts[r]||0});dailyAdd('pack',1);if(rareN)dailyAdd('rare',rareN);
   save();renderYen();
   var res={set:cf.prefix,mode:mode,cards:cards,lost:lost,counts:counts,cost:cost};lastPack=null;playOpening(cf,mode,cards,function(){lastPack=res;renderPack()});
 }
@@ -867,7 +871,7 @@ function askSell(k,n){
   $("sellok").onclick=function(){$("dlg").close();doSell(k,n)};
 }
 function doSell(k,n){
-  n=Math.min(n,sellable(k));if(n<=0)return;
+  n=Math.min(n,sellable(k));if(n<=0)return;dailyAdd('sell',n);
   S.owned[k]-=n;if(S.owned[k]<=0)delete S.owned[k];
   var i=rarityIdx(k),txt;
   if(i===0){var tot=(S.pool||0)+n,pay=Math.floor(tot/30)*10;S.pool=tot%30;S.yen+=pay;txt=nameOf(k)+"を"+n+"枚売りました（"+(pay>0?"+"+pay+"円":"たまった枚数 "+S.pool+"/30")+"）"}
@@ -896,6 +900,71 @@ function grantDeck(d,price,free){
   shopMsg=d.name+"を"+(price?"買いました（-"+price+"円）":"もらいました")+"。デッキに保存して「いま使うデッキ」にしました。";renderShop();renderYen();
 }
 
+
+// ---------- ログインボーナス・デイリーミッション・お気に入り ----------
+// 日付は日本時間で切りかえ。ミッションは毎日3つ（日付から決まるので、同じ日は同じ3つ）。端末の時計を戻しても二重にはもらえない
+var MISSIONS=[
+  {id:"pack1",ev:"pack",n:1,r:120,t:"パックを1回開ける"},
+  {id:"pack3",ev:"pack",n:3,r:260,t:"パックを3回開ける"},
+  {id:"rare1",ev:"rare",n:1,r:150,t:"RR以上のカードを1枚引く"},
+  {id:"rare3",ev:"rare",n:3,r:300,t:"RR以上のカードを3枚引く"},
+  {id:"bat1",ev:"battle",n:1,r:100,t:"対戦を1回する（CPU・オンラインどちらでも）"},
+  {id:"win1",ev:"win",n:1,r:160,t:"対戦に1回勝つ"},
+  {id:"onl1",ev:"online",n:1,r:200,t:"オンライン対戦を1回する"},
+  {id:"sell10",ev:"sell",n:10,r:80,t:"カードを10枚売る"}
+];
+var LOGIN_YEN=[100,100,150,150,200,200,300];   // 7日目は＋無料パック券1枚
+var DAILY_BONUS=200;                            // 3つ全部クリアしたとき
+function jstDay(off){return new Date(Date.now()+9*3600000+(off||0)*86400000).toISOString().slice(0,10)}
+function missionDef(id){for(var i=0;i<MISSIONS.length;i++)if(MISSIONS[i].id===id)return MISSIONS[i];return null}
+function pickMissions(day){
+  var h=2166136261;for(var i=0;i<day.length;i++){h^=day.charCodeAt(i);h=Math.imul(h,16777619)>>>0}
+  function rnd(){h=(h+0x6D2B79F5)>>>0;var t=h;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}
+  var pool=MISSIONS.slice(),out=[],evs={};
+  while(out.length<3&&pool.length){var k=Math.floor(rnd()*pool.length),m=pool.splice(k,1)[0];if(evs[m.ev])continue;evs[m.ev]=1;out.push(m.id)}
+  return out;
+}
+function dailyEnsure(){
+  var today=jstDay(),d=S.daily;
+  if(!d||typeof d!=="object"||!Array.isArray(d.m)){d=S.daily={streak:0,last:"",day:"",m:[],bonus:0}}
+  if(d.day<today){d.day=today;d.m=pickMissions(today).map(function(id){return{id:id,n:0,got:0}});d.bonus=0}
+  return d;
+}
+function dailyAdd(ev,n){
+  try{var d=dailyEnsure();d.m.forEach(function(m){var df=missionDef(m.id);if(df&&df.ev===ev&&!m.got)m.n=Math.min(df.n,(m.n||0)+n)});save();dailyBadge()}catch(e){}
+}
+function dailyClaim(i){
+  var d=dailyEnsure(),m=d.m[i],df=m&&missionDef(m.id);if(!df||m.got||m.n<df.n)return;
+  m.got=1;S.yen+=df.r;var all=d.m.every(function(x){return x.got});
+  if(all&&!d.bonus){d.bonus=1;S.yen+=DAILY_BONUS;toast("ミッション全達成！ +"+df.r+"円 ＋ボーナス "+DAILY_BONUS+"円")}else toast("+"+df.r+"円 もらいました");
+  save();renderYen();renderPack();dailyBadge();
+}
+function dailyBadge(){var b=document.querySelector('#nav button[data-tab="pack"]');if(!b)return;var d=dailyEnsure(),n=0;d.m.forEach(function(m){var df=missionDef(m.id);if(df&&!m.got&&m.n>=df.n)n++});b.textContent=n?"パック ●":"パック"}
+function dailyLogin(){
+  var d=dailyEnsure(),today=jstDay();
+  if(d.last>=today)return;                         // 今日はもう受け取った（時計を戻した場合も同じ）
+  d.streak=d.last===jstDay(-1)?(d.streak||0)+1:1;d.last=today;
+  var k=(d.streak-1)%7,yen=LOGIN_YEN[k],ticket=k===6;
+  S.yen+=yen;if(ticket)S.tickets=(S.tickets||0)+1;save();renderYen();
+  var dots="";for(var i=0;i<7;i++)dots+="<span style='display:inline-block;width:2.1em;padding:3px 0;margin:2px;border-radius:8px;background:"+(i<=k?"var(--mirbg)":"rgba(128,128,128,.15)")+";font-size:.8rem'>"+(i+1)+(i===6?"🎫":"")+"</span>";
+  dialog("<h3 style='margin:0 0 6px'>🎁 ログインボーナス</h3><p style='margin:0 0 4px'>"+d.streak+"日連続ログイン！</p><p style='font-size:1.2rem;font-weight:800;margin:4px 0'>+"+yen+"円"+(ticket?"　＋ 無料パック券 1枚":"")+"</p><div>"+dots+"</div><p class='muted' style='margin:6px 0 0'>毎日開くと、7日で1周します（7日目は無料パック券つき）。1日あいたら1日目にもどります。</p>");
+}
+function renderDaily(el){
+  var d=dailyEnsure(),w=document.createElement("details");w.className="panel";w.style.marginBottom="12px";w.open=true;
+  var left=0;d.m.forEach(function(m){if(!m.got)left++});
+  w.innerHTML="<summary><b>📅 きょうのミッション</b>　"+(left?"のこり "+left+" 個":"✨ ぜんぶ達成！")+"　<span class='muted'>（連続ログイン "+(d.streak||0)+"日"+((S.tickets||0)>0?"　🎫 無料パック券 "+S.tickets+"枚":"")+"）</span></summary>";
+  var box=document.createElement("div");box.style.cssText="display:grid;gap:8px;margin-top:8px";
+  d.m.forEach(function(m,i){var df=missionDef(m.id);if(!df)return;
+    var r=document.createElement("div"),pc=Math.round(Math.min(m.n,df.n)*100/df.n);
+    r.innerHTML="<div style='display:flex;gap:8px;align-items:center;justify-content:space-between'><span>"+esc(df.t)+"　<span class='muted'>"+Math.min(m.n,df.n)+" / "+df.n+"</span></span><span id='dm"+i+"'></span></div><div class='pgbar'><i style='width:"+pc+"%'></i></div>";
+    var b=document.createElement("button");b.className="btn sm"+(m.got||m.n<df.n?" sub":"");b.textContent=m.got?"受け取り済み":(m.n>=df.n?"受け取る +"+df.r+"円":"+"+df.r+"円");b.disabled=!!m.got||m.n<df.n;b.onclick=function(){dailyClaim(i)};
+    r.querySelector("#dm"+i).appendChild(b);box.appendChild(r)});
+  box.insertAdjacentHTML("beforeend","<div class='muted' style='font-size:.8rem'>3つぜんぶ受け取ると、ボーナス +"+DAILY_BONUS+"円"+(d.bonus?"（もらいました）":"")+"。日本時間の0時に新しいミッションになります。</div>");
+  w.appendChild(box);el.appendChild(w);
+}
+function isFav(k){return !!(S.fav&&S.fav[k])}
+function toggleFav(k){if(!S.fav||typeof S.fav!=="object")S.fav={};if(S.fav[k])delete S.fav[k];else S.fav[k]=1;save();return isFav(k)}
+
 // ---------- パック（スタートデッキ100） ----------
 var lastOpen=null;
 function runSD100Open(free){
@@ -914,7 +983,9 @@ function renderSD100Pack(el){
   info.innerHTML="<h2 style='margin:0 0 4px'>スタートデッキ100</h2><p class='muted' style='margin:0 0 10px'>"+PRICE+"円。101種類のデッキから、全部同じ確率で1つ出ます（シークレットも同じ確率）。出たデッキのカードは持ち物に入ります（バラバラ）。開けたあとに、デッキとして保存するか選べます。</p>";
   var row=document.createElement("div");row.className="row";
   var b=document.createElement("button");b.className="btn";b.textContent="開ける（"+PRICE+"円）";b.disabled=S.yen<PRICE;b.onclick=function(){runSD100Open(false)};
-  row.appendChild(b);info.appendChild(row);
+  row.appendChild(b);
+  if((S.tickets||0)>0){var tb=document.createElement("button");tb.className="btn";tb.textContent="🎫 無料パック券で開ける（残り"+S.tickets+"枚）";tb.onclick=function(){if((S.tickets||0)<1)return;S.tickets--;save();runSD100Open(true)};row.appendChild(tb)}
+  info.appendChild(row);
   box.appendChild(pk);box.appendChild(info);el.appendChild(box);
   if(lastOpen){var r=document.createElement("div");r.style.marginTop="14px";el.appendChild(r);renderOpened(r,lastOpen)}
 }
@@ -951,6 +1022,7 @@ function openPack(defer,free){
   Object.keys(items).forEach(function(k){total+=items[k];if(k.indexOf("E:")!==0)S.owned[k]=(S.owned[k]||0)+items[k]});
   // 何も選ばなければ、カードはバラバラ（持ち物に入るだけ）。「デッキとして保存」を押すとデッキにもなる
   var missing=0;(dk.missing||[]).forEach(function(m){missing+=m.count});
+  dailyAdd('pack',1);var rareN2=0;Object.keys(items).forEach(function(k){if(k.indexOf('E:')!==0&&rarityIdx(k)>=2)rareN2+=items[k]});if(rareN2)dailyAdd('rare',rareN2);
   lastOpen={deckSaved:false,name:dk.name,no:dk.no,secret:!!dk.secret,items:items,missing:missing,missingList:(dk.missing||[]).map(function(m){return m.name+" ×"+m.count})};
   save();renderYen();
   if(!defer)renderPack();
@@ -994,6 +1066,8 @@ function showCardNav(keys,i0){
     if(t){
       var own=S.owned[k]||0;
       if(k.indexOf("E:")!==0){var pp=document.createElement("p");pp.className="muted";pp.textContent="持っている枚数: "+own+"枚"+(ART[k]&&ART[k].mirror?"（ミラー）":"");t.appendChild(pp)}
+      if(k.indexOf("E:")!==0){var fb2=document.createElement("button");fb2.className="btn sm"+(isFav(k)?"":" sub");fb2.style.cssText="margin:8px 6px 0 0";fb2.textContent=isFav(k)?"★ お気に入り":"☆ お気に入りにする";
+        fb2.onclick=function(e){e.stopPropagation();var on=toggleFav(k);fb2.className="btn sm"+(on?"":" sub");fb2.textContent=on?"★ お気に入り":"☆ お気に入りにする";if(typeof FAVREFRESH==="function")FAVREFRESH()};t.appendChild(fb2)}
       var b=document.createElement("button");b.className="btn sm sub";b.style.marginTop="8px";b.textContent="🐞 このカードの不具合を報告";b.onclick=function(){openFeedback(c.name)};t.appendChild(b);
     }
     if(keys.length>1){
@@ -1058,7 +1132,7 @@ var colQ="";
 var COLSETS=[["M1L","メガブレイブ"],["M1S","メガシンフォニア"],["M2","インフェルノX"],["M2a","MEGAドリームex"],["SD100","スタートデッキ100"]];
 var COLRAR={c:"C・U",r:"R",rr:"RR",ar:"AR",sr_goods:"SR（グッズ等）",sr_pokemon:"SR（ポケモン・サポート）",ma:"MA",sar:"SAR",mur:"MUR",mirror_ene:"ミラー（エネルギー）",mirror_ball:"ミラー（ボール）",N:"通常カード",M:"ミラー"};
 var COLORD=["c","r","rr","ar","sr_goods","sr_pokemon","ma","sar","mur","mirror_ene","mirror_ball","N","M"];
-var colF="";
+var colF="",colSort="no",colFavOnly=false,FAVREFRESH=null;
 function colGroupOf(k){var m=/^(M1L|M1S|M2a|M2)_card_(.+?)_\d+$/.exec(k);if(m)return [m[1],m[2]];m=/^(SD100)_([NM])_\d+$/.exec(k);if(m)return [m[1],m[2]];return null}
 function colStats(){
   var st={};COLSETS.forEach(function(x){st[x[0]]={tot:0,own:0,by:{}}});
@@ -1088,9 +1162,22 @@ function renderCol(){
   bar.innerHTML="<span class='muted'>"+keys.length+"種類・"+total+"枚（基本エネルギーは数えません）</span>";
   el.appendChild(bar);el.appendChild(colPanel(renderCol));el.appendChild(filterRow(colFilter,function(full){if(full)renderCol();else fill()}));
   if(colF){var cf=document.createElement("div");cf.className="muted";cf.style.margin="6px 0";var pp=colF.split("|"),sn="";COLSETS.forEach(function(x){if(x[0]===pp[0])sn=x[1]});cf.innerHTML="絞り込み中: "+esc(sn)+" "+esc(COLRAR[pp[1]]||"")+" ";var cx=document.createElement("button");cx.className="btn sub sm";cx.textContent="✕ 解除";cx.onclick=function(){colF="";renderCol()};cf.appendChild(cx);el.appendChild(cf)}
+  var sr=document.createElement("div");sr.className="row";sr.style.margin="0 0 8px";
+  var ss=document.createElement("select");ss.setAttribute("aria-label","並び替え");
+  [["no","並び：カード番号順"],["rar","並び：レアリティが高い順"],["cnt","並び：持っている枚数が多い順"],["fav","並び：お気に入りを先頭に"],["name","並び：名前順"]].forEach(function(o){var op=document.createElement("option");op.value=o[0];op.textContent=o[1];if(o[0]===colSort)op.selected=true;ss.appendChild(op)});
+  ss.onchange=function(){colSort=ss.value;fill()};sr.appendChild(ss);
+  var fl=document.createElement("label");fl.style.cssText="display:flex;gap:4px;align-items:center";var fc=document.createElement("input");fc.type="checkbox";fc.checked=colFavOnly;
+  fc.onchange=function(){colFavOnly=fc.checked;fill()};fl.appendChild(fc);fl.appendChild(document.createTextNode("★ お気に入りだけ"));sr.appendChild(fl);
+  var fn=0;keys.forEach(function(k){if(isFav(k))fn++});var fm=document.createElement("span");fm.className="muted";fm.textContent="お気に入り "+fn+"枚種";sr.appendChild(fm);
+  el.appendChild(sr);
   var g=document.createElement("div");g.className="grid";g.id="colgrid";el.appendChild(g);
+  FAVREFRESH=function(){if(!$("t-col").hidden)fill()};
   function fill(){g.innerHTML="";var n=0,vis=[];
-    keys.forEach(function(k){if(!passF(k,colFilter))return;if(colF){var gg=colGroupOf(k);if(!gg||gg[0]+"|"+gg[1]!==colF)return}vis.push(k)});
+    keys.forEach(function(k){if(!passF(k,colFilter))return;if(colFavOnly&&!isFav(k))return;if(colF){var gg=colGroupOf(k);if(!gg||gg[0]+"|"+gg[1]!==colF)return}vis.push(k)});
+    if(colSort==="rar")vis.sort(function(a,b){return rarityIdx(b)-rarityIdx(a)||keyOrder(a)-keyOrder(b)});
+    else if(colSort==="cnt")vis.sort(function(a,b){return (S.owned[b]||0)-(S.owned[a]||0)||keyOrder(a)-keyOrder(b)});
+    else if(colSort==="name")vis.sort(function(a,b){var A=nameOf(a),B2=nameOf(b);return A<B2?-1:A>B2?1:keyOrder(a)-keyOrder(b)});
+    if(colSort!=="no"||true){var fv=vis.filter(isFav),rest=vis.filter(function(k){return !isFav(k)});if(colSort==="fav")vis=fv.concat(rest)}
     vis.forEach(function(k,vi){n++;var t=tileFor(k,S.owned[k]);t.style.cursor="pointer";t.onclick=function(){showCardNav(vis,vi)};g.appendChild(t)});
     if(!n)g.innerHTML="<p class='muted'>"+(keys.length?"当てはまるカードがありません。":"まだカードがありません。パックを開けましょう。")+"</p>"}
   fill();
@@ -1391,6 +1478,7 @@ function openReplay(x){
   show();
 }
 function finishBattle(game,r){
+  if(B.online)specAnnounce("");
   var me=B.me||0,online=B.online,won=r.win===me&&r.win!=null,taken=6-game.players[me].prizes.length,lost=6-game.players[1-me].prizes.length,turns=game.players[me].turnsTaken;
   var eligible=!online||online.isRandom||online.isRank,total=0,lines=[];
   if(eligible&&!B.remoteEnd){
@@ -1398,6 +1486,7 @@ function finishBattle(game,r){
     if(won){if(turns<=7)lines.push(["スピード勝ち（7ターン以内）",60]);else if(turns<=10)lines.push(["はやい勝ち（10ターン以内）",30]);if(lost===0)lines.push(["1匹もやられずに勝利",50])}
     lines.forEach(function(l){total+=l[1]});S.yen+=total;save();renderYen();
   }
+  dailyAdd('battle',1);if(won)dailyAdd('win',1);if(online&&!B.remoteEnd)dailyAdd('online',1);
   var who=online?"相手":"CPU";
   var text=B.remoteEnd?onlineEndText(B.remoteEnd):(r.draw?"引き分け":won?"あなたの勝ち！（"+game.turnNumber+"ターン）":"あなたの負け…（"+game.turnNumber+"ターン）");
   B.reward=total?{lines:lines,total:total}:null;B.result={win:won,text:text};replaySave(game,r,text);
@@ -1635,7 +1724,7 @@ function renderBattleScreen(){
   var prizeW=Math.floor(activeW*0.6),zoneW=Math.max(2*prizeW+14,pileW+16),mainW=W;
   var benchW=Math.floor(Math.max(34,Math.min((benchRowH-18)*0.716,(W-2*zoneW-24)/Math.max(5,g.benchMax(g.players[0]),g.benchMax(g.players[1]),g.players[0].bench.length,g.players[1].bench.length)-8)));
   var SEAT=B.me||0,me=g.players[SEAT],op=g.players[1-SEAT],myTurn=g.currentPlayer===SEAT;
-  if(g.turnNumber!==UI.lastTurn){UI.lastTurn=g.turnNumber;showBanner("ターン"+g.turnNumber+"　"+(myTurn?"あなたの番":"相手の番"))}
+  if(g.turnNumber!==UI.lastTurn){UI.lastTurn=g.turnNumber;showBanner("ターン"+g.turnNumber+"　"+(B.spec?(B.spec.names[g.currentPlayer]+"の番"):(myTurn?"あなたの番":"相手の番")))}
   var acts=myActs(),canAct=acts.length>0;
 
   var endIdx=-1;acts.forEach(function(a,k){if(a.t==="endTurn")endIdx=k});
@@ -1714,12 +1803,12 @@ function renderBattleScreen(){
   field.appendChild(half(op,false,"相手"));
   var strip=document.createElement("div");strip.className="strip";
   var ctl=document.createElement("span");ctl.className="lr";ctl.style.margin="0";
-  var qb=document.createElement("button");qb.className="lnkbtn red";qb.textContent="やめる";qb.onclick=forfeit;
+  var qb=document.createElement("button");qb.className="lnkbtn red";qb.textContent=B.spec?"観戦をやめる":"やめる";qb.onclick=forfeit;
   var lb=document.createElement("button");lb.className="lnkbtn";lb.textContent="ログ";lb.onclick=function(){
     var bx=document.createElement("div");bx.className="zoom logbox";bx.innerHTML="<div class='ztext'><b>ログ</b><div class='fulllog'>"+B.log.slice(-200).map(esc).join("<br>")+"</div></div>";openOvl(bx);var f=bx.querySelector(".fulllog");f.scrollTop=f.scrollHeight};
   var fbb=document.createElement("button");fbb.className="lnkbtn";fbb.textContent="報告";fbb.onclick=function(){openFeedback("")};ctl.appendChild(qb);ctl.appendChild(lb);ctl.appendChild(fbb);var fxb=document.createElement("button");fxb.className="lnkbtn";fxb.textContent="演出"+(UI.fx?"●":"○");fxb.onclick=function(){UI.fx=!UI.fx;lsSet("pk_fx",UI.fx?"1":"0");fxb.textContent="演出"+(UI.fx?"●":"○")};ctl.appendChild(fxb);strip.appendChild(ctl);
   var hb=document.createElement("button");hb.className="mbtn handbtn";hb.textContent=(UI.handOpen?"手札を隠す":"手札を出す")+"（"+me.hand.length+"）";hb.onclick=function(){UI.handOpen=!UI.handOpen;draw()};strip.appendChild(hb);
-  var tinfo=document.createElement("span");tinfo.className="muted";tinfo.style.fontSize=".7rem";tinfo.textContent="ターン"+g.turnNumber+"・"+(myTurn?"あなたの番":"相手の番");strip.appendChild(tinfo);
+  var tinfo=document.createElement("span");tinfo.className="muted";tinfo.style.fontSize=".7rem";tinfo.textContent="ターン"+g.turnNumber+"・"+(B.spec?B.spec.names[g.currentPlayer]+"の番":(myTurn?"あなたの番":"相手の番"));strip.appendChild(tinfo);
   if(g.stadiumCard){var chip=document.createElement("button");chip.className="chip";chip.innerHTML="🏟 "+esc(g.stadiumCard.name)+" <span class='muted'>"+(g.stadiumOwner===SEAT?"（自分）":"（相手）")+"</span> <span class='lnk'>ⓘ 効果を見る</span>";chip.onclick=function(){cardDetail(g.stadiumCard)};strip.appendChild(chip)}
   else{var ns=document.createElement("span");ns.className="muted";ns.style.cssText="font-size:.7rem;margin-left:auto";ns.textContent="スタジアムなし";strip.appendChild(ns)}
   var hint=document.createElement("span");hint.id="bhint";hint.className="dhint";hint.textContent="光っているポケモンの上、または盤面にドロップ";strip.appendChild(hint);
@@ -1751,7 +1840,7 @@ function renderBattleScreen(){
   // スタジアム効果ボタンは中央の帯に置く
   var stIdx=-1;acts.forEach(function(a,k){if(a.t==="useStadium")stIdx=k});
   if(stIdx>=0){var sbn=document.createElement("button");sbn.className="mbtn sub";sbn.textContent="スタジアムの効果を使う";sbn.onclick=function(){runAct(stIdx)};strip.appendChild(sbn)}
-  var ht=document.createElement("span");ht.className="muted";ht.style.fontSize=".7rem";ht.textContent=(B.pending&&B.pending.type==="choice")?"選んでください":(canAct?"":(B.waiting?"相手の操作を待っています…":"相手の番です…"));strip.appendChild(ht);
+  var ht=document.createElement("span");ht.className="muted";ht.style.fontSize=".7rem";ht.textContent=(B.pending&&B.pending.type==="choice")?"選んでください":(B.spec?"👁 観戦中（"+B.spec.names[0]+" 対 "+B.spec.names[1]+"）":(canAct?"":(B.waiting?"相手の操作を待っています…":"相手の番です…")));strip.appendChild(ht);
   el.appendChild(root);
   if(B.pending&&B.pending.type==="choice")renderChoice(B.pending);else if(document.getElementById("gch")&&!(B.pending&&B.pending.type==="choice")){document.getElementById("gch").remove()}else if($("dlg").open&&B._choiceOpen){$("dlg").close();B._choiceOpen=false}
 }
@@ -1818,6 +1907,7 @@ function renderChoice(pd){
 }
 function energyTile(c){return energyEl(c.energyType,true)}
 function forfeit(){
+  if(B.spec){specStop();return}
   dialog("<p>"+(B.online?"オンライン対戦をやめますか？（負けになります）":"投了しますか？（負けになります）")+"</p><div class='row'><button class='btn sm' id='ffok'>投了する</button></div>");
   $("ffok").onclick=function(){$("dlg").close();var g=B.game;if(g&&g.result==null){g.result={win:1-(B.me||0)}}
     B.cancelled=true;if(B.online)B.online.leave();
@@ -1881,7 +1971,7 @@ function frConnect(){
 }
 function frDisconnect(){FR.want=false;if(FR.ws){FR.ws.onclose=null;FR.ws.close();FR.ws=null}clearInterval(FR.timer);if(FR.status!=="needName")FR.status="offline"}
 function frApplyState(d){
-  if(d.friends)FR.friends=d.friends.map(function(f){return{code:f.code,name:f.name||"？",online:!!f.online,lastTs:+f.lastTs||0}}).sort(function(a,b){return a.online!==b.online?(a.online?-1:1):(a.name<b.name?-1:1)});
+  if(d.friends)FR.friends=d.friends.map(function(f){return{code:f.code,name:f.name||"？",online:!!f.online,lastTs:+f.lastTs||0,playing:f.playing||""}}).sort(function(a,b){return a.online!==b.online?(a.online?-1:1):(a.name<b.name?-1:1)});
   FR.inc=d.incoming||[];FR.out=d.outgoing||[];
   if(FR.dm)frMarkRead(FR.dm);
 }
@@ -1889,7 +1979,7 @@ function frMarkRead(code){FR.lastRead[code]=Date.now()+86400000*0;var m=0;(FR.dm
 function frUnread(f){return f.lastTs>(FR.lastRead[f.code]||0)}
 function frHandle(d){
   switch(d.t){
-    case"ready":FR.storeWarn=d.storeWarn||"";FR.vapid=d.vapid||"";FR.pushOn=!!d.pushOn;if(d.pushPrefs)FR.pushPrefs=d.pushPrefs;setTimeout(pushSync,300);frSend({t:"rank"});FR.code=d.code;FR.retry=2;FR.status="online";frApplyState(d);FR.onlineSeen={};FR.friends.forEach(function(f){FR.onlineSeen[f.code]=f.online});FR.global=(d.global||[]);if(FR.dm)frSend({t:"history",with:FR.dm});break;
+    case"ready":FR.storeWarn=d.storeWarn||"";FR.vapid=d.vapid||"";FR.pushOn=!!d.pushOn;if(d.pushPrefs)FR.pushPrefs=d.pushPrefs;setTimeout(pushSync,300);setTimeout(function(){if(B.online&&B.running&&B.online.room)specAnnounce(B.online.room)},600);frSend({t:"rank"});FR.code=d.code;FR.retry=2;FR.status="online";frApplyState(d);FR.onlineSeen={};FR.friends.forEach(function(f){FR.onlineSeen[f.code]=f.online});FR.global=(d.global||[]);if(FR.dm)frSend({t:"history",with:FR.dm});break;
     case"state":{var prevOn=FR.onlineSeen;frApplyState(d);var nowOn={};FR.friends.forEach(function(f){nowOn[f.code]=f.online});
       if(prevOn)FR.friends.forEach(function(f){if(f.online&&prevOn[f.code]===false)frLocalNotify("online","フレンドがオンライン",f.name+"さんがオンラインになりました","on-"+f.code)});
       FR.onlineSeen=nowOn;break}
@@ -2085,10 +2175,15 @@ function frFriendsView(box){
   var b=document.createElement("button");b.className="btn sm";b.textContent="申請する";b.onclick=function(){var c=i.value.replace(/[^A-Za-z0-9]/g,"").toUpperCase();if(c.length!==8){toast("フレンドコードは8文字です");return}frSend({t:"req",code:c});FR.addDraft="";i.value=""};
   ar.appendChild(i);ar.appendChild(b);s.appendChild(ar);box.appendChild(s);
   var h=document.createElement("h3");h.style.margin="10px 0 4px";h.textContent="フレンド（"+FR.friends.length+"人）";box.appendChild(h);
+  var sw=document.createElement("label");sw.className="muted";sw.style.cssText="display:flex;gap:6px;align-items:center;margin:0 0 6px;font-size:.85rem";
+  var scb=document.createElement("input");scb.type="checkbox";scb.checked=lsGet("pk_spec","1")!=="0";
+  scb.onchange=function(){try{localStorage.setItem("pk_spec",scb.checked?"1":"0")}catch(e){}if(B.online&&B.running)specAnnounce(scb.checked?B.online.room:"");if(!scb.checked&&FR.status==="online")frSend({t:"playing",room:""})};
+  sw.appendChild(scb);sw.appendChild(document.createTextNode("フレンドが自分の対戦を観戦できるようにする"));box.appendChild(sw);
   if(!FR.friends.length)box.insertAdjacentHTML("beforeend","<p class='muted'>まだフレンドがいません。全体チャットで名前を押すと、申請を送れます</p>");
   FR.friends.forEach(function(f){
     var r=document.createElement("div");r.className="frow";
     r.innerHTML="<span class='dot "+(f.online?"on":"")+"'></span><b>"+esc(f.name)+"</b>"+(frUnread(f)?" <span class='badge'>新着</span>":"")+"<span style='flex:1'></span>";
+    if(f.online&&f.playing){var wb=document.createElement("button");wb.className="btn sm";wb.textContent="👁 観戦（対戦中）";wb.onclick=function(){specStart(f.playing,f.name)};r.insertBefore(wb,r.lastChild)}
     var c=document.createElement("button");c.className="btn sm";c.textContent="チャット";c.onclick=function(){FR.dm=f.code;frSend({t:"history",with:f.code});frMarkRead(f.code);renderFriends()};
     var t=document.createElement("button");t.className="btn sm sub";t.textContent="トレード";t.onclick=function(){frSend({t:"tr_start",to:f.code})};
     var x=document.createElement("button");x.className="btn sm sub";x.textContent="外す";x.onclick=function(){dialog("<p>"+esc(f.name)+"さんをフレンドから外しますか？</p><div class='row'><button class='btn sm' id='rmok'>外す</button></div>");$("rmok").onclick=function(){$("dlg").close();frSend({t:"remove",code:f.code})}};
@@ -2345,7 +2440,7 @@ function onlineBegin(s,mine,opts){
         return v<0?null:v;
       }};
     var game=new PK.BattleGame(deck0,deck1,seat===0?[local,remote]:[remote,local],null,seed);
-    B.game=game;B.me=seat;B.log=[];B.running=true;B.result=null;B.reward=null;B.pending=null;B.logOpen=false;B.cancelled=false;B.online=s;UI.lastTurn=-1;
+    B.game=game;B.me=seat;B.log=[];B.running=true;B.result=null;B.reward=null;B.pending=null;B.logOpen=false;B.cancelled=false;B.online=s;UI.lastTurn=-1;B.spec=null;specAnnounce(s.room);
     s.onEnd=function(end){
       if(B.cancelled||!B.running||B.game!==game)return;B.cancelled=true;
       if(B.pending){var p=B.pending;B.pending=null;if(p.type==="action")p.res(p.actions.length-1);else p.res(null)}
@@ -2359,6 +2454,84 @@ function onlineBegin(s,mine,opts){
       finishBattle(game,B.remoteEnd?{win:B.remoteEnd.ended==="failed"?undefined:seat,draw:B.remoteEnd.ended==="failed"}:r);if(!B.cancelled)s.close()},function(e){B.log.push("エラー: "+e.message);B.running=false;B.error=e;draw()});
     draw();
   });
+}
+
+// ---------- 観戦（フレンドの対戦を見る） ----------
+// サーバーは2人分の操作の記録を頭から送ってくれる。こちらは同じ乱数の種と両方のデッキで対戦を再現し、あとは生中継の操作を受け取るだけ（操作はできない）
+function specAnnounce(room){if(FR.status!=="online")return;if(room&&lsGet("pk_spec","1")==="0")return;frSend({t:"playing",room:room||""})}
+function specStop(){
+  var sp=B.spec;if(!sp)return;
+  sp.stop=true;sp.over=true;try{sp.ws&&sp.ws.close()}catch(e){}
+  [0,1].forEach(function(i){var w=sp.w[i];if(w){sp.w[i]=null;w(null)}});
+  B.cancelled=true;B.spec=null;B.running=false;B.pending=null;B.waiting=false;B.game=null;B.result=null;draw();
+}
+function specStart(room,fname){
+  if(B.running||B.os){toast("いまの対戦が終わってから観戦できます");return}
+  engineLoad(function(err){
+    if(err){toast("観戦を始められませんでした");return}
+    var sp={room:room,ws:null,q:[[],[]],w:[null,null],cnt:[0,0],names:[fname||"先手","後手"],started:false,over:false,stop:false,tries:0,fast:0};
+    B.spec=sp;B.os=null;B.online=null;
+    showTab("battle");B.result=null;
+    var el=$("t-battle");el.innerHTML="<div class='panel' style='text-align:center'><p>観戦の準備をしています…</p><button class='btn sub' id='sp-cancel'>やめる</button></div>";
+    $("sp-cancel").onclick=function(){sp.stop=true;try{sp.ws&&sp.ws.close()}catch(e){}B.spec=null;renderBattle()};
+    specOpen(sp);
+  });
+}
+function specPush(sp,seat,d){var w=sp.w[seat];if(w){sp.w[seat]=null;w(d)}else sp.q[seat].push(d)}
+function specNext(sp,seat){return new Promise(function(res){if(sp.q[seat].length)res(sp.q[seat].shift());else if(sp.over||sp.stop)res(null);else{sp.w[seat]=res;B.waiting=true;draw()}})}
+function specFail(sp,m){if(sp.stop)return;sp.over=true;if(!sp.started){B.spec=null;toast(m);renderBattle();return}sp.err=m;[0,1].forEach(function(i){var w=sp.w[i];if(w){sp.w[i]=null;w(null)}})}
+function specOpen(sp){
+  var ws;try{ws=new WebSocket(wsBase())}catch(e){specFail(sp,"サーバーのアドレスが正しくありません");return}
+  sp.ws=ws;wakeServer();
+  ws.onopen=function(){ws.send(JSON.stringify({t:"spec",room:sp.room,ver:1}));sp.ping=setInterval(function(){if(ws.readyState===1)ws.send('{"t":"ping"}')},15000)};
+  ws.onmessage=function(ev){var m;try{m=JSON.parse(ev.data)}catch(e){return}
+    if(m.t==="specok"){
+      var L=m.logs;
+      if(!sp.started){
+        if(!L||!L[0]||!L[1]||!L[0].length||!L[1].length){specFail(sp,"対戦がまだ始まっていません");return}
+        specBegin(sp,L[0][0],L[1][0]);
+      }
+      for(var s=0;s<2;s++)for(var i=Math.max(1,sp.cnt[s]);i<L[s].length;i++){specPush(sp,s,L[s][i])}
+      for(var s2=0;s2<2;s2++)sp.cnt[s2]=Math.max(sp.cnt[s2],L[s2].length);
+      sp.fast=sp.q[0].length+sp.q[1].length;
+    }else if(m.t==="smsg"){
+      var s3=m.s|0;if(s3<0||s3>1||m.n!==sp.cnt[s3])return;sp.cnt[s3]++;if(m.n>0)specPush(sp,s3,m.d);
+    }else if(m.t==="sended"){specFail(sp,"対戦が終わりました")}
+    else if(m.t==="error"){specFail(sp,m.m||"観戦できませんでした")}};
+  ws.onclose=function(){clearInterval(sp.ping);if(sp.stop||sp.over||B.spec!==sp)return;
+    if(++sp.tries>6){specFail(sp,"通信が切れました");return}setTimeout(function(){if(!sp.stop&&!sp.over&&B.spec===sp)specOpen(sp)},2000)};
+  ws.onerror=function(){};
+}
+function specBegin(sp,h0,h1){
+  function bad(m){specFail(sp,m)}
+  if(!h0||!h1||h0.k!=="hello"||h1.k!=="hello"||h0.dv!==WEB_DV||h1.dv!==WEB_DV){bad(h0&&h1&&h0.dv!==h1.dv||(h0&&h0.dv!==WEB_DV)?"カードデータの版が違うため観戦できません。サイトを開き直してください":"対戦のデータを読めませんでした");return}
+  var d0=deckFromWire(h0.deck),d1=deckFromWire(h1.deck);
+  if(!d0||!d1||PK.DeckList.validate(d0).length||PK.DeckList.validate(d1).length){bad("デッキを読めませんでした");return}
+  var seed=Number(h0.seed)>>>0;if(!isFinite(seed)){bad("対戦のデータを読めませんでした");return}
+  sp.names=[String(h0.name||sp.names[0]).slice(0,12),String(h1.name||"相手").slice(0,12)];
+  sp.started=true;
+  function mk(seat){return{
+    chooseAction:async function(g,p,acts){var m=await specNext(sp,seat);B.waiting=false;
+      if(!m||sp.stop||sp.over&&!m){if(g.result==null)g.result={draw:true};return acts.length-1}
+      if(m.k!=="a"||!(m.v>=0&&m.v<acts.length)){sp.err="記録が合いませんでした";sp.over=true;if(g.result==null)g.result={draw:true};return acts.length-1}
+      var fast=sp.q[0].length+sp.q[1].length>2;
+      if(!fast){if(acts[m.v].t!=="endTurn")toast(sp.names[seat]+": "+g.describe(acts[m.v],p));draw();await sleep(700)}
+      return m.v},
+    choose:async function(g,p,req){var m=await specNext(sp,seat);B.waiting=false;
+      if(!m||sp.stop){if(g.result==null)g.result={draw:true};return null}
+      if(m.k!=="c"){sp.err="記録が合いませんでした";sp.over=true;if(g.result==null)g.result={draw:true};return null}
+      return m.v<0?null:m.v}}}
+  var deck0=PK.DeckList.makeBattleCards(d0,0,true),deck1=PK.DeckList.makeBattleCards(d1,1000,true);
+  var game=new PK.BattleGame(deck0,deck1,[mk(0),mk(1)],null,seed);
+  B.game=game;B.me=0;B.log=[];B.running=true;B.result=null;B.reward=null;B.pending=null;B.logOpen=false;B.cancelled=false;B.online=null;B.os=null;UI.lastTurn=-1;
+  game.onLog=function(t){B.log.push(t);try{fxLog(game,t);fxRemember(game)}catch(e){}draw()};
+  game.run().then(function(r){
+    if(B.spec!==sp)return;
+    var txt=sp.err?"観戦を続けられませんでした（"+sp.err+"）":r.draw?"引き分け（または観戦が途中で終わりました）":(sp.names[r.win]+"の勝ち！（"+game.turnNumber+"ターン）");
+    sp.over=true;try{sp.ws&&sp.ws.close()}catch(e){}
+    B.spec=null;B.result={win:!sp.err&&!r.draw,text:txt};B.running=false;B.waiting=false;B.pending=null;draw()},
+    function(e){if(B.spec!==sp)return;B.spec=null;B.running=false;B.result={win:false,text:"観戦中にエラー: "+e.message};draw()});
+  draw();
 }
 function onlineEndText(end){return end.ended==="opponentLeft"?"相手が対戦をやめました。あなたの勝ち！":end.ended==="opponentForfeit"?"相手が戻ってこなかったので、あなたの勝ちです":"対戦を続けられませんでした\n"+(end.m||"")}
 
@@ -2457,7 +2630,7 @@ $("wipeBtn").onclick=function(){
     location.reload();
   };
 };
-renderYen();showTab("pack");
+renderYen();showTab("pack");dailyBadge();setTimeout(dailyLogin,400);
 // はじめての人は、スタートデッキ100を無料で1つ、必ず開ける
 (function(){
   var none=!Object.keys(S.owned).some(function(k){return S.owned[k]>0})&&!S.decks.length;
