@@ -291,6 +291,14 @@ body.inbattle .gchg{touch-action:pan-y}
 .zoom.slidein-r{animation:slr .18s ease-out}.zoom.slidein-l{animation:sll .18s ease-out}
 @keyframes slr{from{opacity:.2;transform:translateX(40px)}to{opacity:1;transform:none}}
 @keyframes sll{from{opacity:.2;transform:translateX(-40px)}to{opacity:1;transform:none}}
+.stampfx{position:fixed;left:50%;bottom:30%;z-index:99998;pointer-events:none;font-size:2.2rem;text-align:center;animation:stampup 2.2s ease-out forwards;text-shadow:0 2px 8px rgba(0,0,0,.5)}
+.stampfx small{display:block;font-size:.75rem;color:#fff;background:rgba(0,0,0,.6);border-radius:10px;padding:1px 8px}
+@keyframes stampup{0%{transform:translate(-50%,20px) scale(.6);opacity:0}15%{opacity:1;transform:translate(-50%,0) scale(1.15)}100%{transform:translate(-50%,-140px) scale(1);opacity:0}}
+.tmrbox{position:fixed;right:10px;top:54px;z-index:9999;background:#1c1c1e;color:#fff;border-radius:16px;padding:4px 12px;font-weight:700;font-size:.9rem}.tmrbox.low{background:#c0392b}
+.stbar{display:inline-flex;gap:2px}.stbar button{font-size:1.1rem;padding:0 4px;background:none;border:0;cursor:pointer}
+.wishmark{position:absolute;right:4px;top:22px;font-size:.95rem;line-height:1;pointer-events:none;z-index:3;filter:drop-shadow(0 0 2px #000)}
+.wakebar{position:fixed;left:50%;top:10px;transform:translateX(-50%);background:#1c1c1e;color:#fff;padding:8px 14px;border-radius:20px;font-size:.85rem;z-index:99999;box-shadow:0 2px 10px rgba(0,0,0,.4);max-width:92vw}
+.ach{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:10px;margin:4px 0;background:rgba(128,128,128,.1)}.ach.on{background:var(--mirbg)}.ach b{display:block}
 .favstar{position:absolute;right:4px;top:2px;color:#f5b400;text-shadow:0 0 3px #000,0 0 2px #000;font-size:1.1rem;line-height:1;pointer-events:none;z-index:3}
 .rbadge{position:absolute;left:4px;top:4px;font-weight:800;font-size:.68rem;border-radius:6px;padding:1px 6px;color:#fff;background:#546e7a;box-shadow:0 1px 3px rgba(0,0,0,.4);pointer-events:none}
 .rbadge.r3{background:#2e7d32}.rbadge.r4,.rbadge.r5{background:#1565c0}.rbadge.r6{background:#6a1b9a}.rbadge.r7{background:#e65100}
@@ -320,7 +328,7 @@ body.inbattle .gchg{touch-action:pan-y}
   <section id="t-battle" hidden></section>
   <section id="t-friend" hidden></section>
 </main>
-<footer style="text-align:center;padding:14px 12px 24px"><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:10px"><button class="btn sub sm" id="svBtn">💾 セーブ</button><button class="btn sub sm" id="ldBtn">📂 ロード</button></div><button class="btn sub sm" id="fbBtn" style="display:block;margin:0 auto 160px">🐞 不具合・ご意見を送る</button><button id="wipeBtn" style="font:inherit;font-size:.62rem;color:#888;opacity:.3;background:none;border:0;padding:6px 10px;cursor:pointer">データを削除</button></footer>
+<footer style="text-align:center;padding:14px 12px 24px"><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:10px"><button class="btn sub sm" id="tuBtn">❓ あそびかた</button><button class="btn sub sm" id="nwBtn">📢 お知らせ</button><button class="btn sub sm" id="acBtn">🏆 実績</button><button class="btn sub sm" id="stBtn">📊 統計</button><button class="btn sub sm" id="hiBtn">📖 開封の履歴</button><button class="btn sub sm" id="thBtn">🌓 画面の色</button></div><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:10px"><button class="btn sub sm" id="svBtn">💾 セーブ</button><button class="btn sub sm" id="ldBtn">📂 ロード</button></div><button class="btn sub sm" id="fbBtn" style="display:block;margin:0 auto 160px">🐞 不具合・ご意見を送る</button><button id="wipeBtn" style="font:inherit;font-size:.62rem;color:#888;opacity:.3;background:none;border:0;padding:6px 10px;cursor:pointer">データを削除</button></footer>
 <dialog id="dlg"><div id="dlgbody"></div><div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn sub sm" id="dlgclose">閉じる</button></div></dialog>
 
 <script src="engine.js"></script>
@@ -407,6 +415,7 @@ function tileFor(name,count,opt){
   if(name.indexOf("E:")===0){var ty=name.slice(2);t.appendChild(energyEl(ty,false))}
   else{t.appendChild(imgEl(name));}
   if(name.indexOf("E:")!==0&&isFav(name)&&!opt.flip){var st=document.createElement("span");st.className="favstar";st.textContent="★";t.appendChild(st)}
+  if(name.indexOf("E:")!==0&&isWish(name)&&!opt.flip){var wm=document.createElement("span");wm.className="wishmark";wm.textContent="🎯";t.appendChild(wm)}
   if(count!=null&&!opt.ctl){var c=document.createElement("span");c.className="cnt";c.textContent="×"+count;t.appendChild(c)}
   if(name.indexOf("E:")!==0&&a&&!opt.nobadge){var ri=rarityIdx(name);if(ri>=2||(ri===1&&!opt.ctl&&false)){var bd=document.createElement("span");bd.className="rbadge r"+ri;bd.textContent=RAR[ri].label.replace("(ポケモン等)","").replace("(グッズ等)","");t.appendChild(bd)}}
   return t;
@@ -767,7 +776,7 @@ function openSetPack(cf,mode){
     if(a&&a.id>0)S.owned[c.art]=(S.owned[c.art]||0)+1;else lost++;
     counts[c.rarity]=(counts[c.rarity]||0)+1;
   });
-  var rareN=0;['AR','SR_Pokemon','SR_Goods','SAR','MA','MUR','RR'].forEach(function(r){rareN+=counts[r]||0});dailyAdd('pack',1);if(rareN)dailyAdd('rare',rareN);
+  var rareN=0;['AR','SR_Pokemon','SR_Goods','SAR','MA','MUR','RR'].forEach(function(r){rareN+=counts[r]||0});dailyAdd('pack',1);if(rareN)dailyAdd('rare',rareN);recordPull(cards.map(function(c){return c.art}),cf.prefix,mode);
   save();renderYen();
   var res={set:cf.prefix,mode:mode,cards:cards,lost:lost,counts:counts,cost:cost};lastPack=null;playOpening(cf,mode,cards,function(){lastPack=res;renderPack()});
 }
@@ -803,7 +812,7 @@ var SHOP_DECKS=[
  {id:"fighting",name:"闘デッキ（メガルカリオex）",note:"どっしり戦う闘タイプのデッキ",cards:[[28,4],[29,3],[24,3],[25,2],[26,2],[27,2],[20,2],[21,2],[59,4],[58,3],[62,3],[61,2],[83,2]],energy:["fighting",26]}];
 function shopDeckPrice(d){var t=0;d.cards.forEach(function(c){var card=CARDS[c[0]];if(card)t+=buyPriceOf(card[1])*c[1]});return t}
 function deckUsage(art){var m=0;S.decks.forEach(function(d){m=Math.max(m,d.items[art]||0)});return m}
-function sellable(art){return Math.max((S.owned[art]||0)-deckUsage(art),0)}
+function sellable(art){return Math.max((S.owned[art]||0)-deckUsage(art)-(isFav(art)?1:0),0)}
 function shopItems(){
   var list=[];
   Object.keys(ART).forEach(function(k){var a=ART[k],ri_=rarityIdx(k);if(ri_<0)return;if(!(a.id>0||a.kind==="e"))return;list.push(k)});
@@ -901,6 +910,212 @@ function grantDeck(d,price,free){
 }
 
 
+
+// ---------- ほしいカード / 統計 / 履歴 / 実績 / 画面の色 / サーバーを起こす表示 ----------
+function isWish(k){return !!(S.wish&&S.wish[k])}
+function toggleWish(k){if(!S.wish||typeof S.wish!=="object")S.wish={};if(S.wish[k])delete S.wish[k];else S.wish[k]=1;save();return isWish(k)}
+var RAR_NAMES=["ふつう（C・U・R）","ミラー","RR","AR","SR（グッズ）","SR","MA","SAR","MUR"];
+var SET_NAMES={M1L:"メガブレイブ",M1S:"メガシンフォニア",M2:"インフェルノX",M2a:"MEGAドリームex",SD100:"スタートデッキ100"};
+function statEnsure(){var t=S.stat;if(!t||typeof t!=="object")t=S.stat={};["packs","cards","bat","win","onl","onlWin","spec"].forEach(function(k){if(typeof t[k]!=="number")t[k]=0});if(!Array.isArray(t.rar))t.rar=[];for(var i=0;i<9;i++)if(typeof t.rar[i]!=="number")t.rar[i]=0;return t}
+function recordPull(arts,setKey,mode){
+  try{
+    var t=statEnsure(),rares=[];t.packs++;
+    arts.forEach(function(a){if(!a||a.indexOf("E:")===0)return;t.cards++;var r=rarityIdx(a);if(r>=0)t.rar[r]++;if(r>=2)rares.push(a)});
+    if(!Array.isArray(S.hist))S.hist=[];
+    S.hist.unshift({t:Date.now(),set:setKey,mode:mode||0,n:arts.length,rares:rares.slice(0,40)});
+    while(S.hist.length>30)S.hist.pop();
+    save();achCheck();
+  }catch(e){}
+}
+function statBattle(won,online){var t=statEnsure();t.bat++;if(won)t.win++;if(online){t.onl++;if(won)t.onlWin++}save();achCheck()}
+function pct(a,b){return b?(Math.round(a*1000/b)/10)+"%":"-"}
+function openStats(){
+  var t=statEnsure(),tot=0;t.rar.forEach(function(x){tot+=x});
+  var h="<h3 style='margin:0 0 6px'>📊 開封と対戦の統計</h3><p style='margin:2px 0'>開けたパック: <b>"+t.packs+"</b>回　引いたカード: <b>"+t.cards+"</b>枚</p>";
+  h+="<table style='border-collapse:collapse;width:100%;font-size:.9rem;margin:6px 0'>";
+  RAR_NAMES.forEach(function(n,i){if(i===1&&!t.rar[1])return;h+="<tr><td style='padding:2px 6px'>"+n+"</td><td align=right>"+t.rar[i]+"枚</td><td align=right class='muted'>"+pct(t.rar[i],tot)+"</td></tr>"});
+  h+="</table><p style='margin:6px 0 2px'>対戦: <b>"+t.bat+"</b>回　勝ち: <b>"+t.win+"</b>（勝率 "+pct(t.win,t.bat)+"）</p>";
+  h+="<p style='margin:2px 0'>オンライン対戦: <b>"+t.onl+"</b>回　勝ち: <b>"+t.onlWin+"</b>（勝率 "+pct(t.onlWin,t.onl)+"）</p><p class='muted' style='margin:6px 0 0'>※この機能が入ってからの記録です。</p>";
+  dialog(h);
+}
+function openHistory(){
+  var L=Array.isArray(S.hist)?S.hist:[],h="<h3 style='margin:0 0 6px'>📖 開封の履歴</h3>";
+  if(!L.length)h+="<p class='muted'>まだ記録がありません。パックを開けると、直近30回ぶんが残ります。</p>";
+  else{h+="<p class='muted' style='margin:0 0 6px'>RR以上のカードだけ載せています。</p>";
+    L.forEach(function(x){var d=new Date(x.t),best=x.rares.slice().sort(function(a,b){return rarityIdx(b)-rarityIdx(a)}).slice(0,6);
+      h+="<div style='padding:6px 0;border-top:1px solid var(--line)'><b>"+(d.getMonth()+1)+"/"+d.getDate()+" "+("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2)+"</b>　"+esc(SET_NAMES[x.set]||x.set)+"　<span class='muted'>"+x.n+"枚</span><br>"+(best.length?best.map(function(a){return "<span class='badge'>"+RAR_NAMES[rarityIdx(a)].split("（")[0]+" "+esc(nameOf(a))+"</span>"}).join(" "):"<span class='muted'>RR以上は出ませんでした</span>")+"</div>"})}
+  dialog(h);
+}
+var ACHS=[
+  {id:"w1",t:"はじめての勝利",d:"対戦に1回勝つ",r:200,v:function(){return statEnsure().win},n:1},
+  {id:"w10",t:"10勝",d:"対戦に10回勝つ",r:500,v:function(){return statEnsure().win},n:10},
+  {id:"w50",t:"50勝",d:"対戦に50回勝つ",r:1500,v:function(){return statEnsure().win},n:50},
+  {id:"b10",t:"対戦好き",d:"対戦を10回する",r:300,v:function(){return statEnsure().bat},n:10},
+  {id:"o1",t:"オンラインデビュー",d:"オンライン対戦を1回する",r:200,v:function(){return statEnsure().onl},n:1},
+  {id:"o10",t:"オンラインの常連",d:"オンライン対戦を10回する",r:500,v:function(){return statEnsure().onl},n:10},
+  {id:"ow5",t:"オンライン5勝",d:"オンライン対戦に5回勝つ",r:700,v:function(){return statEnsure().onlWin},n:5},
+  {id:"sp1",t:"観戦デビュー",d:"フレンドの対戦を観戦する",r:100,v:function(){return statEnsure().spec},n:1},
+  {id:"p10",t:"パック10回",d:"パックを10回開ける",r:200,v:function(){return statEnsure().packs},n:10},
+  {id:"p50",t:"パック50回",d:"パックを50回開ける",r:600,v:function(){return statEnsure().packs},n:50},
+  {id:"p200",t:"パック200回",d:"パックを200回開ける",r:2000,v:function(){return statEnsure().packs},n:200},
+  {id:"ar1",t:"ARゲット",d:"ARを引く",r:300,v:function(){return statEnsure().rar[3]},n:1},
+  {id:"ar10",t:"AR10枚",d:"ARを合計10枚引く",r:1000,v:function(){return statEnsure().rar[3]},n:10},
+  {id:"sr1",t:"SRゲット",d:"SRを引く",r:500,v:function(){var r=statEnsure().rar;return r[4]+r[5]},n:1},
+  {id:"sar1",t:"SARゲット",d:"SARを引く",r:800,v:function(){return statEnsure().rar[7]},n:1},
+  {id:"mur1",t:"MURゲット",d:"MURを引く",r:3000,v:function(){return statEnsure().rar[8]},n:1},
+  {id:"l3",t:"3日連続",d:"3日連続でログインする",r:150,v:function(){return S.daily&&S.daily.streak||0},n:3},
+  {id:"l7",t:"7日連続",d:"7日連続でログインする",r:400,v:function(){return S.daily&&S.daily.streak||0},n:7},
+  {id:"l30",t:"30日連続",d:"30日連続でログインする",r:2000,v:function(){return S.daily&&S.daily.streak||0},n:30},
+  {id:"f5",t:"お気に入りコレクター",d:"お気に入りを5種類にする",r:100,v:function(){return S.fav?Object.keys(S.fav).length:0},n:5},
+  {id:"c50",t:"50種類",d:"持っているカードが50種類",r:300,v:function(){return ownedKinds()},n:50},
+  {id:"c200",t:"200種類",d:"持っているカードが200種類",r:1000,v:function(){return ownedKinds()},n:200},
+  {id:"c500",t:"500種類",d:"持っているカードが500種類",r:3000,v:function(){return ownedKinds()},n:500}
+];
+function ownedKinds(){var n=0;Object.keys(S.owned).forEach(function(k){if(S.owned[k]>0)n++});return n}
+function achCheck(){
+  try{
+    if(!S.ach||typeof S.ach!=="object")S.ach={};var got=[];
+    ACHS.forEach(function(a){if(S.ach[a.id])return;if(a.v()>=a.n){S.ach[a.id]=1;S.yen+=a.r;got.push(a)}});
+    if(got.length){save();renderYen();got.forEach(function(a,i){setTimeout(function(){toast("🏆 実績「"+a.t+"」 +"+a.r+"円")},i*1700)})}
+  }catch(e){}
+}
+function openAch(){
+  var n=0;ACHS.forEach(function(a){if(S.ach&&S.ach[a.id])n++});
+  var h="<h3 style='margin:0 0 6px'>🏆 実績　<span class='muted'>"+n+" / "+ACHS.length+"</span></h3>";
+  ACHS.forEach(function(a){var on=S.ach&&S.ach[a.id],v=Math.min(a.v(),a.n);
+    h+="<div class='ach"+(on?" on":"")+"'><span style='font-size:1.4rem'>"+(on?"🏆":"🔒")+"</span><span style='flex:1'><b>"+esc(a.t)+"</b><span class='muted'>"+esc(a.d)+(on?"":"　"+v+" / "+a.n)+"</span></span><span>"+(on?"達成":"+"+a.r+"円")+"</span></div>"});
+  dialog(h);
+}
+var DARKRULES=null;
+function applyTheme(){
+  var m=lsGet("pk_theme","auto");
+  try{
+    if(!DARKRULES){DARKRULES=[];Array.prototype.forEach.call(document.styleSheets,function(sh){var rs;try{rs=sh.cssRules}catch(e){return}
+      Array.prototype.forEach.call(rs,function(r){if(r.type===4&&/prefers-color-scheme\s*:\s*dark/.test(r.media.mediaText))DARKRULES.push(r)})})}
+    DARKRULES.forEach(function(r){r.media.mediaText=m==="dark"?"all":m==="light"?"not all":"(prefers-color-scheme: dark)"});
+  }catch(e){}
+  try{var b=$("thBtn");if(b)b.textContent="🌓 画面の色: "+(m==="dark"?"ダーク":m==="light"?"ライト":"自動")}catch(e){}
+}
+function cycleTheme(){var m=lsGet("pk_theme","auto");lsSet("pk_theme",m==="auto"?"dark":m==="dark"?"light":"auto");applyTheme()}
+function wakeBanner(){
+  var done=false,el=null,ac=window.AbortController?new AbortController():null;
+  var tm=setTimeout(function(){if(done)return;el=document.createElement("div");el.className="wakebar";el.textContent="🔌 サーバーを起こしています…（最大1分ほどかかります）";document.body.appendChild(el)},1500);
+  function end(ok){if(done)return;done=true;clearTimeout(tm);if(el){el.textContent=ok?"✅ サーバーの準備ができました":"⚠ サーバーにつながりません（しばらくしてからもう一度）";setTimeout(function(){el.remove()},ok?2000:4500)}}
+  setTimeout(function(){if(ac)ac.abort();end(false)},90000);
+  try{fetch(httpBase()+"/health",{mode:"no-cors",cache:"no-store",signal:ac?ac.signal:undefined}).then(function(){end(true)}).catch(function(){end(false)})}catch(e){end(false)}
+}
+var lastWake=Date.now();
+document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"&&Date.now()-lastWake>8*60000){lastWake=Date.now();wakeBanner()}});
+
+
+// ---------- おすすめデッキ（いま持っているカードで組めるスタートデッキ） ----------
+function recommendDecks(){
+  var byId={};Object.keys(S.owned).forEach(function(k){var a=ART[k];if(a&&a.id>0&&S.owned[k]>0)byId[a.id]=(byId[a.id]||0)+S.owned[k]});
+  var rows=[];
+  DATA.decks.forEach(function(dk){
+    var need=0,have=0,miss=[];
+    dk.cards.forEach(function(c){need+=c.count;var h=Math.min(c.count,byId[c.id]||0);have+=h;if(h<c.count&&CARDS[c.id])miss.push([CARDS[c.id][0],c.count-h])});
+    rows.push({dk:dk,need:need,have:have,miss:miss});
+  });
+  rows.sort(function(x,y){return (y.have/y.need)-(x.have/x.need)||x.dk.no-y.dk.no});
+  var h="<h3 style='margin:0 0 6px'>💡 おすすめデッキ</h3><p class='muted' style='margin:0 0 6px'>いま持っているカードで、そろっている順にスタートデッキを並べました。そろっていれば、そのままデッキにできます。</p>";
+  rows.slice(0,6).forEach(function(r,i){
+    var ok=r.have===r.need;
+    h+="<div class='ach"+(ok?" on":"")+"' style='display:block'><b>"+esc(r.dk.name)+"　<span class='"+(ok?"okc":"muted")+"'>"+r.have+" / "+r.need+"枚</span></b>"+(ok?"":"<span class='muted'>あと "+(r.need-r.have)+"枚："+r.miss.slice(0,5).map(function(m){return esc(m[0])+"×"+m[1]}).join("、")+(r.miss.length>5?"…":"")+"</span>")+(ok?"<button class='btn sm' data-rd='"+i+"' style='margin-top:4px'>このデッキを作る</button>":"")+"</div>"});
+  dialog(h);
+  document.querySelectorAll("#dlgbody [data-rd]").forEach(function(b){b.onclick=function(){
+    var r=rows[+b.dataset.rd],items={},left={};
+    Object.keys(S.owned).forEach(function(k){var a=ART[k];if(a&&a.id>0&&S.owned[k]>0){(left[a.id]=left[a.id]||[]).push([k,S.owned[k]])}});
+    r.dk.cards.forEach(function(c){var need=c.count;(left[c.id]||[]).sort(function(x,y){return rarityIdx(x[0])-rarityIdx(y[0])}).forEach(function(p){if(need<=0)return;var t=Math.min(need,p[1]);items[p[0]]=(items[p[0]]||0)+t;p[1]-=t;need-=t})});
+    (r.dk.energy||[]).forEach(function(e){items["E:"+e.type]=(items["E:"+e.type]||0)+e.count});
+    S.decks.push({name:r.dk.name,items:items});save();$("dlg").close();toast("「"+r.dk.name+"」をデッキに追加しました");if(!$("t-deck").hidden)renderDeck()}});
+}
+// ---------- あそびかた ----------
+var TUT=[
+  ["ようこそ！","パックを開けてカードを集め、デッキを作って、CPUやフレンドと対戦するゲームです。まずは「パック」タブでスタートデッキ100を開けてみましょう。"],
+  ["パックを開ける","「パック」タブのパックを押すと、101種類のデッキのどれかが出ます。出たデッキのカードが持ち物に入ります。お金（円）は、対戦やミッション、ログインボーナスでもらえます。"],
+  ["デッキを作る","「デッキ」タブで60枚のデッキを作ります。同じ名前のカードは4枚まで、基本エネルギーは何枚でも入れられます。「🩺 診断」でバランスを見られます。「いま使うデッキ」を選ぶと、対戦で使われます。"],
+  ["対戦のはじまり","最初に手札7枚を引き、たねポケモンをバトル場に出します。ほかのたねポケモンはベンチ（最大5匹）に置けます。サイド（賞品カード）は6枚です。"],
+  ["自分の番","山札を1枚引いて、好きなだけ行動します。エネルギーをつける（1回）、サポート（1回）、グッズ、ポケモンの進化、ベンチに出す、にげる。最後にワザを使うと番が終わります。"],
+  ["操作のしかた","手札のカードを長押しすると大きく表示され、左右にスライドで別のカードを見られます。そのまま画面にドラッグすると、使えます。カードの詳細は、デッキやコレクションでカードを押しても見られます。"],
+  ["勝ち方","サイドを6枚とりきる、相手のバトルポケモンとベンチがいなくなる、相手が山札を引けなくなる、のどれかで勝ちです。"],
+  ["オンラインとフレンド","「フレンド」タブで名前を決めると、フレンド申請やチャットができます。対戦タブの「ランクマッチ」「ランダム」「部屋を作る」でオンライン対戦。フレンドの対戦は「👁 観戦」で見られ、スタンプも送れます。"],
+  ["毎日の楽しみ","ログインボーナスとデイリーミッションでお金がもらえます。実績もあります。ページの下の「セーブ」で、記録をコードで書き出せます（機種変更の前にどうぞ）。"]
+];
+function openTutorial(first){
+  var i=0;
+  function show(){
+    var p=TUT[i];
+    dialog("<div class='muted' style='font-size:.8rem'>"+(i+1)+" / "+TUT.length+"</div><h3 style='margin:2px 0 6px'>"+esc(p[0])+"</h3><p style='margin:0 0 10px;line-height:1.7'>"+esc(p[1])+"</p><div class='row'><button class='btn sub sm' id='tuP'"+(i?"":" disabled")+">← 前</button><button class='btn sm' id='tuN'>"+(i<TUT.length-1?"次 →":"はじめる！")+"</button></div>");
+    $("tuP").onclick=function(){if(i>0){i--;show()}};
+    $("tuN").onclick=function(){if(i<TUT.length-1){i++;show()}else $("dlg").close()};
+  }
+  if(first){lsSet("pk_tut","1");var dl=$("dlg");dl.addEventListener("close",function h(){dl.removeEventListener("close",h);setTimeout(dailyLogin,300)})}
+  show();
+}
+
+// ---------- デッキ診断・デッキ画像 ----------
+function diagnoseDeck(d){
+  var list=[],warn=[],ok=[],tot=0,basic=0,s1=0,s2=0,poke=0,sup=0,item=0,tool=0,stad=0,spE=0,bE=0,ex=0,names={},evoNeed=[],typeW={},costW={},enT={};
+  Object.keys(d.items).forEach(function(k){
+    var n=d.items[k];tot+=n;
+    if(k.indexOf("E:")===0){bE+=n;enT[k.slice(2)]=(enT[k.slice(2)]||0)+n;return}
+    var a=ART[k];if(!a)return;var c=PK.catalog(a.id);if(!c)return;
+    if(c.kind==="pokemon"){poke+=n;names[c.name]=1;
+      if(c.stage==="basic")basic+=n;else if(c.stage==="stage1")s1+=n;else if(c.stage==="stage2")s2+=n;
+      if(/ex$/.test(c.name)||/ex[^ァ-ヶ一-龠]/.test(c.name))ex+=n;
+      typeW[c.type]=(typeW[c.type]||0)+n;
+      (c.attacks||[]).forEach(function(at){(at.cost||[]).forEach(function(t){if(t!=="colorless")costW[t]=(costW[t]||0)+n})});
+    }else if(c.kind==="trainer"){
+      if(c.trainerKind==="supporter")sup+=n;else if(c.trainerKind==="item")item+=n;else if(c.trainerKind==="tool")tool+=n;else if(c.trainerKind==="stadium")stad+=n;else if(c.trainerKind==="specialEnergy"){spE+=n}
+    }
+  });
+  Object.keys(d.items).forEach(function(k){if(k.indexOf("E:")===0)return;var a=ART[k],c=a&&PK.catalog(a.id);if(c&&c.kind==="pokemon"&&c.evolvesFrom&&!names[c.evolvesFrom]&&evoNeed.indexOf(c.name+"|"+c.evolvesFrom)<0)evoNeed.push(c.name+"|"+c.evolvesFrom)});
+  var en=bE+spE;
+  (tot===60?ok:warn).push(tot===60?"60枚そろっています":"枚数が "+tot+" 枚です（60枚にしてください）");
+  if(basic===0)warn.push("たねポケモンが1枚もありません（最初に出せません）");else if(basic<6)warn.push("たねポケモンが少なめです（"+basic+"枚。8〜12枚が目安）");else ok.push("たねポケモン "+basic+"枚");
+  if(en<8)warn.push("エネルギーが少なめです（"+en+"枚。10〜16枚が目安）");else if(en>20)warn.push("エネルギーが多めです（"+en+"枚）");else ok.push("エネルギー "+en+"枚");
+  if(sup===0)warn.push("サポートが入っていません");else if(sup>12)warn.push("サポートが多めです（"+sup+"枚）");else ok.push("サポート "+sup+"枚");
+  if(item<4)warn.push("グッズが少なめです（"+item+"枚）。引く・さがす系があると安定します");else ok.push("グッズ "+item+"枚");
+  evoNeed.forEach(function(x){var p=x.split("|");warn.push("「"+p[0]+"」の進化元「"+p[1]+"」が入っていません")});
+  if(ex>8)warn.push("exポケモンが多めです（"+ex+"枚）。やられたとき相手にサイドを多く取られます");
+  var hasAll=false;Object.keys(d.items).forEach(function(k){var a=ART[k],c=a&&k.indexOf("E:")!==0&&PK.catalog(a.id);if(c&&c.kind==="trainer"&&c.trainerKind==="specialEnergy")hasAll=true});
+  Object.keys(costW).forEach(function(t){if(costW[t]>=3&&!enT[t]&&!hasAll)warn.push("「"+typeName(t)+"」エネルギーを使うワザが多いのに、基本"+typeName(t)+"エネルギーがありません")});
+  var h="<h3 style='margin:0 0 6px'>🩺 デッキ診断「"+esc(d.name)+"」</h3>";
+  h+="<p class='muted' style='margin:0 0 6px'>ポケモン "+poke+"（たね "+basic+" / 1進化 "+s1+" / 2進化 "+s2+"）・サポート "+sup+"・グッズ "+item+"・どうぐ "+tool+"・スタジアム "+stad+"・エネルギー "+en+"</p>";
+  warn.forEach(function(x){h+="<div class='ach' style='background:rgba(240,160,112,.18)'>⚠ "+esc(x)+"</div>"});
+  ok.forEach(function(x){h+="<div class='ach on'>✅ "+esc(x)+"</div>"});
+  h+="<p class='muted' style='margin:8px 0 0'>※目安です。デッキによって正解は変わります。</p>";
+  dialog(h);
+}
+function loadImgCors(name){
+  return new Promise(function(res){var k=0;function t(){var im=new Image();im.crossOrigin="anonymous";im.onload=function(){res(im)};im.onerror=function(){k++;if(k<EXT.length)t();else res(null)};im.src=IMAGE_BASE+encodeURIComponent(name)+"."+EXT[k]}t()});
+}
+function exportDeckImage(d){
+  dialog("<p>画像を作っています…</p>");
+  var keys=Object.keys(d.items).filter(function(k){return d.items[k]>0}).sort(function(a,b){return keyOrder(a)-keyOrder(b)});
+  var arts=keys.filter(function(k){return k.indexOf("E:")!==0});
+  Promise.all(arts.map(function(k){return loadImgCors(k)})).then(function(ims){
+    var map={};arts.forEach(function(k,i){map[k]=ims[i]});
+    function draw(useImg){
+      var cols=8,cw=150,ch=209,pad=12,top=64,rows=Math.ceil(keys.length/cols);
+      var cv=document.createElement("canvas");cv.width=pad+cols*(cw+pad);cv.height=top+rows*(ch+pad)+pad;
+      var x=cv.getContext("2d");x.fillStyle="#10141c";x.fillRect(0,0,cv.width,cv.height);
+      x.fillStyle="#fff";x.font="bold 30px sans-serif";x.textBaseline="middle";x.fillText(d.name+"（"+deckTotal(d)+"枚）",pad,top/2);
+      keys.forEach(function(k,i){var cx=pad+(i%cols)*(cw+pad),cy=top+Math.floor(i/cols)*(ch+pad);
+        var im=useImg&&map[k];
+        if(im){x.drawImage(im,cx,cy,cw,ch)}
+        else{var col="#3a4256";if(k.indexOf("E:")===0){TYPES.forEach(function(t){if(t[0]===k.slice(2))col=t[2]})}x.fillStyle=col;x.fillRect(cx,cy,cw,ch);x.fillStyle="#fff";x.font="bold 18px sans-serif";x.textAlign="center";
+          var nm=nameOf(k),ln=[];for(var p=0;p<nm.length;p+=8)ln.push(nm.slice(p,p+8));ln.slice(0,5).forEach(function(l,j){x.fillText(l,cx+cw/2,cy+ch/2-20+j*24)});x.textAlign="left"}
+        var n=d.items[k];x.fillStyle="rgba(0,0,0,.75)";x.fillRect(cx+cw-46,cy+ch-34,44,32);x.fillStyle="#fff";x.font="bold 22px sans-serif";x.textAlign="center";x.fillText("×"+n,cx+cw-24,cy+ch-18);x.textAlign="left"});
+      return cv;
+    }
+    var cv=draw(true),url;
+    try{url=cv.toDataURL("image/png")}catch(e){cv=draw(false);url=cv.toDataURL("image/png")}
+    dialog("<h3 style='margin:0 0 6px'>🖼 デッキの画像</h3><p class='muted' style='margin:0 0 6px'>画像を長押しして「写真に追加」で保存できます。</p><img src='"+url+"' style='width:100%;border-radius:8px'><div class='row' style='margin-top:8px'><a class='btn' id='dkDl' download='"+esc(d.name)+".png' href='"+url+"'>ダウンロード</a></div>");
+  });
+}
+
 // ---------- ログインボーナス・デイリーミッション・お気に入り ----------
 // 日付は日本時間で切りかえ。ミッションは毎日3つ（日付から決まるので、同じ日は同じ3つ）。端末の時計を戻しても二重にはもらえない
 var MISSIONS=[
@@ -945,7 +1160,7 @@ function dailyLogin(){
   if(d.last>=today)return;                         // 今日はもう受け取った（時計を戻した場合も同じ）
   d.streak=d.last===jstDay(-1)?(d.streak||0)+1:1;d.last=today;
   var k=(d.streak-1)%7,yen=LOGIN_YEN[k],ticket=k===6;
-  S.yen+=yen;if(ticket)S.tickets=(S.tickets||0)+1;save();renderYen();
+  S.yen+=yen;if(ticket)S.tickets=(S.tickets||0)+1;save();renderYen();setTimeout(achCheck,2500);
   var dots="";for(var i=0;i<7;i++)dots+="<span style='display:inline-block;width:2.1em;padding:3px 0;margin:2px;border-radius:8px;background:"+(i<=k?"var(--mirbg)":"rgba(128,128,128,.15)")+";font-size:.8rem'>"+(i+1)+(i===6?"🎫":"")+"</span>";
   dialog("<h3 style='margin:0 0 6px'>🎁 ログインボーナス</h3><p style='margin:0 0 4px'>"+d.streak+"日連続ログイン！</p><p style='font-size:1.2rem;font-weight:800;margin:4px 0'>+"+yen+"円"+(ticket?"　＋ 無料パック券 1枚":"")+"</p><div>"+dots+"</div><p class='muted' style='margin:6px 0 0'>毎日開くと、7日で1周します（7日目は無料パック券つき）。1日あいたら1日目にもどります。</p>");
 }
@@ -963,7 +1178,7 @@ function renderDaily(el){
   w.appendChild(box);el.appendChild(w);
 }
 function isFav(k){return !!(S.fav&&S.fav[k])}
-function toggleFav(k){if(!S.fav||typeof S.fav!=="object")S.fav={};if(S.fav[k])delete S.fav[k];else S.fav[k]=1;save();return isFav(k)}
+function toggleFav(k){if(!S.fav||typeof S.fav!=="object")S.fav={};if(S.fav[k])delete S.fav[k];else S.fav[k]=1;save();achCheck();return isFav(k)}
 
 // ---------- パック（スタートデッキ100） ----------
 var lastOpen=null;
@@ -1022,7 +1237,7 @@ function openPack(defer,free){
   Object.keys(items).forEach(function(k){total+=items[k];if(k.indexOf("E:")!==0)S.owned[k]=(S.owned[k]||0)+items[k]});
   // 何も選ばなければ、カードはバラバラ（持ち物に入るだけ）。「デッキとして保存」を押すとデッキにもなる
   var missing=0;(dk.missing||[]).forEach(function(m){missing+=m.count});
-  dailyAdd('pack',1);var rareN2=0;Object.keys(items).forEach(function(k){if(k.indexOf('E:')!==0&&rarityIdx(k)>=2)rareN2+=items[k]});if(rareN2)dailyAdd('rare',rareN2);
+  dailyAdd('pack',1);var rareN2=0;Object.keys(items).forEach(function(k){if(k.indexOf('E:')!==0&&rarityIdx(k)>=2)rareN2+=items[k]});if(rareN2)dailyAdd('rare',rareN2);recordPull(Object.keys(items),'SD100',0);
   lastOpen={deckSaved:false,name:dk.name,no:dk.no,secret:!!dk.secret,items:items,missing:missing,missingList:(dk.missing||[]).map(function(m){return m.name+" ×"+m.count})};
   save();renderYen();
   if(!defer)renderPack();
@@ -1067,7 +1282,9 @@ function showCardNav(keys,i0){
       var own=S.owned[k]||0;
       if(k.indexOf("E:")!==0){var pp=document.createElement("p");pp.className="muted";pp.textContent="持っている枚数: "+own+"枚"+(ART[k]&&ART[k].mirror?"（ミラー）":"");t.appendChild(pp)}
       if(k.indexOf("E:")!==0){var fb2=document.createElement("button");fb2.className="btn sm"+(isFav(k)?"":" sub");fb2.style.cssText="margin:8px 6px 0 0";fb2.textContent=isFav(k)?"★ お気に入り":"☆ お気に入りにする";
-        fb2.onclick=function(e){e.stopPropagation();var on=toggleFav(k);fb2.className="btn sm"+(on?"":" sub");fb2.textContent=on?"★ お気に入り":"☆ お気に入りにする";if(typeof FAVREFRESH==="function")FAVREFRESH()};t.appendChild(fb2)}
+        fb2.onclick=function(e){e.stopPropagation();var on=toggleFav(k);fb2.className="btn sm"+(on?"":" sub");fb2.textContent=on?"★ お気に入り":"☆ お気に入りにする";if(typeof FAVREFRESH==="function")FAVREFRESH()};t.appendChild(fb2);
+        var wb2=document.createElement("button");wb2.className="btn sm"+(isWish(k)?"":" sub");wb2.style.cssText="margin:8px 6px 0 0";wb2.textContent=isWish(k)?"🎯 ほしいカード":"🎯 ほしいカードにする";
+        wb2.onclick=function(e){e.stopPropagation();var on=toggleWish(k);wb2.className="btn sm"+(on?"":" sub");wb2.textContent=on?"🎯 ほしいカード":"🎯 ほしいカードにする";if(typeof FAVREFRESH==="function")FAVREFRESH()};t.appendChild(wb2)}
       var b=document.createElement("button");b.className="btn sm sub";b.style.marginTop="8px";b.textContent="🐞 このカードの不具合を報告";b.onclick=function(){openFeedback(c.name)};t.appendChild(b);
     }
     if(keys.length>1){
@@ -1132,7 +1349,7 @@ var colQ="";
 var COLSETS=[["M1L","メガブレイブ"],["M1S","メガシンフォニア"],["M2","インフェルノX"],["M2a","MEGAドリームex"],["SD100","スタートデッキ100"]];
 var COLRAR={c:"C・U",r:"R",rr:"RR",ar:"AR",sr_goods:"SR（グッズ等）",sr_pokemon:"SR（ポケモン・サポート）",ma:"MA",sar:"SAR",mur:"MUR",mirror_ene:"ミラー（エネルギー）",mirror_ball:"ミラー（ボール）",N:"通常カード",M:"ミラー"};
 var COLORD=["c","r","rr","ar","sr_goods","sr_pokemon","ma","sar","mur","mirror_ene","mirror_ball","N","M"];
-var colF="",colSort="no",colFavOnly=false,FAVREFRESH=null;
+var colF="",colSort="no",colFavOnly=false,colWishOnly=false,FAVREFRESH=null;
 function colGroupOf(k){var m=/^(M1L|M1S|M2a|M2)_card_(.+?)_\d+$/.exec(k);if(m)return [m[1],m[2]];m=/^(SD100)_([NM])_\d+$/.exec(k);if(m)return [m[1],m[2]];return null}
 function colStats(){
   var st={};COLSETS.forEach(function(x){st[x[0]]={tot:0,own:0,by:{}}});
@@ -1168,12 +1385,13 @@ function renderCol(){
   ss.onchange=function(){colSort=ss.value;fill()};sr.appendChild(ss);
   var fl=document.createElement("label");fl.style.cssText="display:flex;gap:4px;align-items:center";var fc=document.createElement("input");fc.type="checkbox";fc.checked=colFavOnly;
   fc.onchange=function(){colFavOnly=fc.checked;fill()};fl.appendChild(fc);fl.appendChild(document.createTextNode("★ お気に入りだけ"));sr.appendChild(fl);
+  var wl=document.createElement("label");wl.style.cssText="display:flex;gap:4px;align-items:center";var wc=document.createElement("input");wc.type="checkbox";wc.checked=colWishOnly;wc.onchange=function(){colWishOnly=wc.checked;fill()};wl.appendChild(wc);wl.appendChild(document.createTextNode("🎯 ほしいカードだけ"));sr.appendChild(wl);
   var fn=0;keys.forEach(function(k){if(isFav(k))fn++});var fm=document.createElement("span");fm.className="muted";fm.textContent="お気に入り "+fn+"枚種";sr.appendChild(fm);
   el.appendChild(sr);
   var g=document.createElement("div");g.className="grid";g.id="colgrid";el.appendChild(g);
   FAVREFRESH=function(){if(!$("t-col").hidden)fill()};
   function fill(){g.innerHTML="";var n=0,vis=[];
-    keys.forEach(function(k){if(!passF(k,colFilter))return;if(colFavOnly&&!isFav(k))return;if(colF){var gg=colGroupOf(k);if(!gg||gg[0]+"|"+gg[1]!==colF)return}vis.push(k)});
+    keys.forEach(function(k){if(!passF(k,colFilter))return;if(colFavOnly&&!isFav(k))return;if(colWishOnly&&!isWish(k))return;if(colF){var gg=colGroupOf(k);if(!gg||gg[0]+"|"+gg[1]!==colF)return}vis.push(k)});
     if(colSort==="rar")vis.sort(function(a,b){return rarityIdx(b)-rarityIdx(a)||keyOrder(a)-keyOrder(b)});
     else if(colSort==="cnt")vis.sort(function(a,b){return (S.owned[b]||0)-(S.owned[a]||0)||keyOrder(a)-keyOrder(b)});
     else if(colSort==="name")vis.sort(function(a,b){var A=nameOf(a),B2=nameOf(b);return A<B2?-1:A>B2?1:keyOrder(a)-keyOrder(b)});
@@ -1245,6 +1463,7 @@ function renderDeck(){
   var bar=document.createElement("div");bar.className="row";bar.style.marginBottom="10px";
   var nb=document.createElement("button");nb.className="btn sub";nb.textContent="＋ 空のデッキを作る";nb.onclick=function(){S.decks.push({name:"新しいデッキ",items:{}});editIdx=S.decks.length-1;save();renderDeck()};
   bar.appendChild(nb);
+  var rb=document.createElement("button");rb.className="btn sub";rb.textContent="💡 おすすめデッキ";rb.onclick=recommendDecks;bar.appendChild(rb);
   var ib=document.createElement("button");ib.className="btn sub";ib.textContent="コードから取り込む";ib.onclick=function(){askImportDeck("",renderDeck)};bar.appendChild(ib);el.appendChild(bar);
   if(!S.decks.length){el.insertAdjacentHTML("beforeend","<p class='muted'>デッキがありません。パックを開けるとデッキが手に入ります。</p>");return}
   var g=document.createElement("div");g.className="decks";
@@ -1266,7 +1485,9 @@ function renderEditor(el,d){
   var top=document.createElement("div");top.className="row sticky";
   var nm=document.createElement("input");nm.type="text";nm.value=d.name;nm.setAttribute("aria-label","デッキの名前");nm.style.flex="1 1 180px";nm.onchange=function(){d.name=nm.value||"デッキ";save()};
   var cnt=document.createElement("strong");var back=document.createElement("button");back.className="btn sm sub";back.textContent="← 一覧へ";back.onclick=function(){editIdx=-1;renderDeck()};
-  top.appendChild(back);top.appendChild(nm);top.appendChild(cnt);el.appendChild(top);
+  top.appendChild(back);top.appendChild(nm);top.appendChild(cnt);
+  var dg=document.createElement("button");dg.className="btn sm sub";dg.textContent="🩺 診断";dg.onclick=function(){diagnoseDeck(d)};top.appendChild(dg);
+  var di=document.createElement("button");di.className="btn sm sub";di.textContent="🖼 画像";di.onclick=function(){exportDeckImage(d)};top.appendChild(di);el.appendChild(top);
   function upd(){var n=deckTotal(d);cnt.className=n===60?"okc":"warn";cnt.textContent=n+"/60枚"}
   var inDeck=document.createElement("div");el.appendChild(inDeck);
   var h2=document.createElement("h3");h2.textContent="持っているカードから足す";h2.style.margin="16px 0 6px";el.appendChild(h2);
@@ -1321,8 +1542,9 @@ function engineLoad(cb){
   }).catch(function(e){cb("cards_rt.json を読めませんでした（"+e.message+"）。cards_rt.json を index.html と同じ場所に置いてください。")});
 }
 // いま使うデッキ → エンジンのデッキ
-function currentDeckList(){
-  var d=S.decks[S.current];if(!d)return null;
+function currentDeckList(){return deckListFor(S.decks[S.current])}
+function deckListFor(d){
+  if(!d)return null;
   var cards={},arts={},energy={};
   Object.keys(d.items).forEach(function(k){
     var n=d.items[k];
@@ -1374,7 +1596,7 @@ function renderBattleSetup(el){
   h+="<p>あなたのデッキ: <b>"+(dl?esc(S.decks[S.current].name):"なし")+"</b></p>";
   if(probs.length)h+="<p class='warn'>"+probs.map(esc).join("<br>")+"</p>";
   h+="<div class='row' style='margin:8px 0'><label>相手のデッキ <select id='b-opp'><option value='fighting'>闘デッキ（メガルカリオex）</option><option value='darkness'>悪デッキ（メガアブソルex）</option><option value='random'>ランダムなCPUデッキ</option></select></label>";
-  h+="<label>CPU <select id='b-cpu'><option value='strong'>強化版</option><option value='simple'>簡単</option></select></label></div>";
+  h+="<label>CPUの強さ <select id='b-cpu'><option value='strong'>つよい</option><option value='simple'>ふつう</option><option value='weak'>よわい（ときどきミスをする）</option></select></label></div>";
   h+="<button class='btn' id='b-start'"+(probs.length?" disabled":"")+">CPUと対戦を始める</button> <button class='btn sub sm' id='b-rep'>📜 対戦の記録</button></div>";
   var nm=myName(),okOn=!probs.length&&nm;
   h+=rankPanel(nm,okOn);
@@ -1383,9 +1605,10 @@ function renderBattleSetup(el){
   h+="<p class='muted' style='margin:0 0 8px'>ランダムマッチは同じように探している人と自動で組みます（ごほうびが出ます）。部屋を作る場合は4文字の合言葉を相手に伝えます（ごほうびなし）。いま選んでいるデッキで戦います。サーバーが眠っていると、最初の接続に1分ほどかかります。</p>";
   h+="<div class='row' style='margin-bottom:8px'><button class='btn' id='o-rand'"+(okOn?"":" disabled")+">対戦相手を探す</button><button class='btn sub' id='o-create'"+(okOn?"":" disabled")+">部屋を作る</button></div>";
   h+="<div class='row'><input type='text' id='o-code' maxlength='4' placeholder='合言葉（4文字）' style='width:9em;font:700 1.2rem ui-monospace,Menlo,monospace;text-transform:uppercase'><button class='btn sub' id='o-join'"+(okOn?"":" disabled")+">入る</button></div>";
+  h+="<div class='row' style='margin:8px 0'><label>持ち時間（1回の操作ごと） <select id='o-tmr'><option value='0'>なし</option><option value='60'>60秒</option><option value='120'>120秒</option><option value='180'>180秒</option></select></label><span class='muted' style='font-size:.8rem'>時間切れになると、自動で進みます</span></div>";
   h+="<details style='margin-top:10px'><summary class='muted'>サーバーの設定</summary><div class='row' style='margin-top:6px'><input type='text' id='o-srv' style='flex:1' value='"+esc(serverBase())+"'><button class='btn sm sub' id='o-srvset'>保存</button></div></details></div>";
   el.innerHTML=h;$("b-opp").value=B.cfg.opp;$("b-cpu").value=B.cfg.cpu;
-  $("b-rep").onclick=openReplayList;
+  $("b-rep").onclick=openReplayList;$("o-tmr").value=String(tmrSec());$("o-tmr").onchange=function(){lsSet("pk_tmr",$("o-tmr").value)};
   $("b-start").onclick=function(){B.cfg.opp=$("b-opp").value;B.cfg.cpu=$("b-cpu").value;startBattle()};
   if($("o-ranked"))$("o-ranked").onclick=function(){onlineStart("ranked")};
   if(nm0()&&FR.status!=="online"){frConnect()}else if(FR.status==="online"&&!FR.rank){frSend({t:"rank"})}
@@ -1430,19 +1653,119 @@ function fxShow(c,text,opp){
   document.body.appendChild(d);_fxEl=d;
   _fxT=setTimeout(function(){if(_fxEl){_fxEl.classList.add("out");var e=_fxEl;setTimeout(function(){e.remove()},300);_fxEl=null}},1100);
 }
-function startBattle(){
-  var mine=currentDeckList(),opp;
-  if(B.cfg.opp==="random"){var g=PK.CPUDeckGenerator.random(Date.now()%100000);opp=g.list||g}else opp=PK.PresetDecks[B.cfg.opp];
-  var a=PK.DeckList.makeBattleCards(mine,0,true),b=PK.DeckList.makeBattleCards(opp,1000,false);
-  var cpu=B.cfg.cpu==="strong"?new PK.StrongCPUAgent():new PK.SimpleCPUAgent();
-  var human={chooseAction:function(g,p,acts){return new Promise(function(res){B.pending={type:"action",actions:acts,res:res};draw()})},
-    choose:function(g,p,req){return new Promise(function(res){B.pending={type:"choice",req:req,res:res};draw()})}};
-  var slow={chooseAction:async function(g,p,acts){await sleep(450);return cpu.chooseAction(g,p,acts)},choose:async function(g,p,req){await sleep(250);return cpu.choose(g,p,req)}};
-  var game=new PK.BattleGame(a,b,[human,slow],null,null);
-  B.game=game;B.me=0;B.online=null;B.os=null;B.cancelled=false;B.log=[];B.running=true;B.result=null;B.reward=null;B.pending=null;B.logOpen=false;UI.lastTurn=-1;
-  game.onLog=function(t){B.log.push(t);try{fxLog(game,t);fxRemember(game)}catch(e){}draw()};
-  game.run().then(function(r){finishBattle(game,r)},function(e){B.log.push("エラー: "+e.message);B.running=false;B.error=e;draw()});
+function startBattle(prev){
+  var cu;
+  if(prev)cu=prev;
+  else{
+    var mine0=currentDeckList(),opp0;
+    if(B.cfg.opp==="random"){var g0=PK.CPUDeckGenerator.random(Date.now()%100000);opp0=g0.list||g0}else opp0=PK.PresetDecks[B.cfg.opp];
+    cu={mine:mine0,opp:opp0,seed:(Math.random()*4294967296)>>>0,decs:[],undos:3,used:false,cpu:B.cfg.cpu};
+  }
+  var a=PK.DeckList.makeBattleCards(cu.mine,0,true),b=PK.DeckList.makeBattleCards(cu.opp,1000,false);
+  var cpu=cu.cpu==="strong"?new PK.StrongCPUAgent():new PK.SimpleCPUAgent(),weak=cu.cpu==="weak";
+  var rep=cu.decs.slice(),ri=0,game;
+  B.fastRep=rep.length>0;
+  function live(){return B.game===game}
+  var human={chooseAction:function(g,p,acts){
+      if(!live())return new Promise(function(){});
+      if(ri<rep.length){var d=rep[ri++];if(d.k==="a"&&d.v>=0&&d.v<acts.length)return Promise.resolve(d.v);ri=rep.length}
+      return new Promise(function(res){B.fastRep=false;B.pending={type:"action",actions:acts,res:function(v){cu.decs.push({k:"a",v:v});res(v)}};draw()})},
+    choose:function(g,p,req){
+      if(!live())return new Promise(function(){});
+      if(ri<rep.length){var d=rep[ri++];if(d.k==="c")return Promise.resolve(d.v<0?null:d.v);ri=rep.length}
+      return new Promise(function(res){B.fastRep=false;B.pending={type:"choice",req:req,res:function(v){cu.decs.push({k:"c",v:v==null?-1:v});res(v)}};draw()})}};
+  var slow={chooseAction:async function(g,p,acts){if(!live())return new Promise(function(){});if(!B.fastRep)await sleep(450);if(!live())return new Promise(function(){});
+      if(weak&&acts.length>1&&g.rand()<0.35){var nz=[];acts.forEach(function(x,i){if(x.t!=="endTurn")nz.push(i)});if(nz.length&&g.rand()<0.7)return nz[Math.floor(g.rand()*nz.length)];for(var q=0;q<acts.length;q++)if(acts[q].t==="endTurn")return q}
+      return cpu.chooseAction(g,p,acts)},
+    choose:async function(g,p,req){if(!live())return new Promise(function(){});if(!B.fastRep)await sleep(250);return cpu.choose(g,p,req)}};
+  game=new PK.BattleGame(a,b,[human,slow],null,cu.seed);
+  B.game=game;B.cu=cu;B.me=0;B.online=null;B.os=null;B.cancelled=false;B.log=[];B.running=true;B.result=null;B.reward=null;B.pending=null;B.logOpen=false;UI.lastTurn=-1;
+  game.onLog=function(t){if(!live())return;B.log.push(t);if(B.fastRep)return;try{fxLog(game,t);fxRemember(game)}catch(e){}draw()};
+  game.run().then(function(r){if(live())finishBattle(game,r)},function(e){if(!live())return;B.log.push("エラー: "+e.message);B.running=false;B.error=e;draw()});
   draw();
+}
+function undoMove(){
+  var cu=B.cu;if(!cu||cu.undos<=0||B.spec||B.online||!B.running||!B.pending)return;
+  var i=cu.decs.length-1;while(i>=0&&cu.decs[i].k!=="a")i--;
+  if(i<0){toast("これ以上は戻せません");return}
+  cu.decs=cu.decs.slice(0,i);cu.undos--;cu.used=true;
+  B.pending=null;toast("1つ前の操作に戻しました（のこり "+cu.undos+" 回）");
+  startBattle(cu);
+}
+
+// ---------- 応援スタンプ ----------
+var STAMPS=["👏","🔥","😮","🤝","💪","😂"];
+function stampShow(from,k){
+  var d=document.createElement("div");d.className="stampfx";d.style.marginLeft=((Math.random()*160)-80)+"px";
+  d.innerHTML=(STAMPS[k]||"👏")+"<small>"+esc(from||"")+"</small>";document.body.appendChild(d);setTimeout(function(){d.remove()},2300);
+}
+function stampBar(send){
+  var w=document.createElement("span");w.className="stbar";
+  STAMPS.forEach(function(e,i){var b=document.createElement("button");b.textContent=e;b.setAttribute("aria-label","スタンプ");b.onclick=function(){send(i);stampShow("あなた",i)};w.appendChild(b)});
+  return w;
+}
+// ---------- 持ち時間（オンライン対戦。自分の1回の操作ごと） ----------
+function tmrSec(){var v=+lsGet("pk_tmr","120");return v>0?v:0}
+function tmrStop(){clearInterval(B.tmrI);B.tmrI=null;var e=$("tmrBox");if(e)e.remove()}
+function tmrStart(){
+  tmrStop();var sec=tmrSec();if(!sec||!B.online)return;
+  var end=Date.now()+sec*1000;
+  B.tmrI=setInterval(function(){
+    var p=B.pending;if(!p||!B.running){tmrStop();return}
+    var left=Math.ceil((end-Date.now())/1000),e=$("tmrBox");
+    if(!e){e=document.createElement("div");e.id="tmrBox";e.className="tmrbox";document.body.appendChild(e)}
+    e.textContent="⏱ 残り "+Math.max(left,0)+"秒";e.classList.toggle("low",left<=20);
+    if(left<=0){tmrStop();B.pending=null;toast("時間切れ：自動で進めました");
+      if(p.type==="action"){var k=-1;p.actions.forEach(function(a,i){if(a.t==="endTurn")k=i});p.res(k>=0?k:p.actions.length-1)}else p.res(null)}
+  },500);
+}
+// ---------- フレンドとの対戦成績（この端末の記録） ----------
+function h2hRec(name){return S.h2h&&S.h2h[name]||null}
+function h2hAdd(name,res){
+  if(!name)return;if(!S.h2h||typeof S.h2h!=="object")S.h2h={};
+  var r=S.h2h[name]||(S.h2h[name]={w:0,l:0,d:0});r[res]++;
+  var ks=Object.keys(S.h2h);if(ks.length>200)delete S.h2h[ks[0]];save();
+}
+function h2hText(name){var r=h2hRec(name);return r?r.w+"勝"+r.l+"敗"+(r.d?r.d+"分":""):""}
+// ---------- お知らせ ----------
+var NEWS_LOCAL=[
+  {id:"2026-11-08b",t:"2026-11-08",title:"新機能がふえました",body:"デイリーミッションとログインボーナス／お気に入り・ほしいカード／フレンドの対戦の観戦と応援スタンプ／実績・統計・開封の履歴／デッキ診断とデッキの画像保存／CPUの強さ「よわい」／オンライン対戦の持ち時間／画面の色の切りかえ。"}
+];
+var NEWS_SRV=[];
+function newsAll(){var a=NEWS_SRV.map(function(x){return{id:String(x.id),t:x.t,title:x.title,body:x.body}}).concat(NEWS_LOCAL);a.sort(function(x,y){return x.t<y.t?1:x.t>y.t?-1:(x.id<y.id?1:-1)});return a}
+function newsUnread(){var a=newsAll(),seen=lsGet("pk_newsread","");return a.length&&a[0].id!==seen&&a.some(function(x){return seen.indexOf(x.id)<0})}
+function newsBtn(){var b=$("nwBtn");if(b)b.textContent="📢 お知らせ"+(newsUnread()?" ●":"")}
+function newsFetch(){try{fetch(httpBase()+"/news",{cache:"no-store"}).then(function(r){return r.json()}).then(function(l){if(Array.isArray(l)){NEWS_SRV=l.slice(0,20);newsBtn()}}).catch(function(){})}catch(e){}}
+function openNews(){
+  var a=newsAll(),h="<h3 style='margin:0 0 6px'>📢 お知らせ</h3>";
+  a.slice(0,20).forEach(function(x){h+="<div style='padding:6px 0;border-top:1px solid var(--line)'><b>"+esc(x.title)+"</b> <span class='muted'>"+esc(x.t)+"</span><br><span style='white-space:pre-wrap'>"+esc(x.body)+"</span></div>"});
+  dialog(h);lsSet("pk_newsread",a.map(function(x){return x.id}).join(","));newsBtn();
+}
+// ---------- リプレイの共有（コード） ----------
+function replayWire(x){return JSON.stringify({k:String(x.kind||"").slice(0,10),r:String(x.res||"").slice(0,60),tn:x.turns|0,t:x.t|0,l:(x.log||[]).slice(-600).map(function(l){return String(l).slice(0,160)})})}
+async function replayEncode(x){
+  var js=replayWire(x),bytes=new TextEncoder().encode(js);
+  if(window.CompressionStream){var cs=new CompressionStream("gzip"),w=cs.writable.getWriter();w.write(bytes);w.close();var buf=new Uint8Array(await new Response(cs.readable).arrayBuffer());return "PKR1:"+bkToB64(buf)}
+  return "PKR0:"+bkToB64(bytes);
+}
+async function replayDecode(code){
+  code=String(code||"").replace(/\s+/g,"");var kind=code.slice(0,5),body=code.slice(5),b=bkFromB64(body),js;
+  if(kind==="PKR1:"){if(!window.DecompressionStream)throw new Error("この端末では開けません（ブラウザが古いようです）");var ds=new DecompressionStream("gzip"),w=ds.writable.getWriter();w.write(b);w.close();js=new TextDecoder().decode(await new Response(ds.readable).arrayBuffer())}
+  else if(kind==="PKR0:")js=new TextDecoder().decode(b);else throw new Error("コードの形が違います");
+  var o=JSON.parse(js);if(!o||!Array.isArray(o.l)||o.l.length>800)throw new Error("コードが壊れています");
+  return{kind:String(o.k||"共有").slice(0,10),res:String(o.r||"").slice(0,60),turns:o.tn|0,t:+o.t||Date.now(),log:o.l.slice(0,800).map(function(l){return String(l).slice(0,200)})};
+}
+function openReplayCode(){
+  dialog("<h3 style='margin:0 0 6px'>📥 コードから対戦の記録を開く</h3><textarea id='rcIn' placeholder='PKR1: で始まるコードをはりつけ' style='width:100%;height:110px;font-size:.8rem'></textarea><div class='row' style='margin-top:6px'><button class='btn' id='rcGo'>開く</button><button class='btn sub' id='rcBack'>もどる</button></div><p id='rcMsg' class='warn'></p>");
+  $("rcBack").onclick=openReplayList;
+  $("rcGo").onclick=function(){replayDecode($("rcIn").value).then(function(x){x.shared=1;openReplay(x)}).catch(function(e){$("rcMsg").textContent=e.message||"開けませんでした"})};
+}
+function shareReplay(x){
+  dialog("<p>コードを作っています…</p>");
+  replayEncode(x).then(function(code){
+    dialog("<h3 style='margin:0 0 6px'>📤 記録のコード</h3><p class='muted' style='margin:0 0 6px'>このコードをフレンドに送ると、「対戦の記録」の「コードから開く」で同じログを見てもらえます。</p><textarea id='rcOut' readonly style='width:100%;height:110px;font-size:.7rem'></textarea><div class='row' style='margin-top:6px'><button class='btn' id='rcCopy'>コピー</button><button class='btn sub' id='rcBack'>もどる</button></div>");
+    var ta=$("rcOut");ta.value=code;$("rcCopy").onclick=function(){copyText(code,ta)};$("rcBack").onclick=function(){openReplay(x)};
+  }).catch(function(){dialog("<p class='warn'>コードを作れませんでした</p>")});
 }
 
 // ---------- 対戦ログの記録（あとから見直せる） ----------
@@ -1460,7 +1783,8 @@ function openReplayList(){
   if(!L.length)h+="<p class='muted'>まだ記録がありません。対戦が終わると、直近8回ぶんのログが残ります。</p>";
   else{h+="<p class='muted' style='margin:0 0 6px'>終わった対戦のログを見直せます（直近8回）。</p>";
     L.forEach(function(x,i){var d=new Date(x.t);h+="<button class='btn sub sm' data-rp='"+i+"' style='display:block;width:100%;text-align:left;margin:4px 0'>"+(d.getMonth()+1)+"/"+d.getDate()+" "+("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2)+"　"+esc(x.kind)+"戦　"+esc(x.res||"")+"</button>"})}
-  dialog(h);
+  h+="<div class='row' style='margin-top:8px'><button class='btn sub sm' id='rpCode'>📥 コードから開く</button></div>";
+  dialog(h);$("rpCode").onclick=openReplayCode;
   document.querySelectorAll("#dlgbody [data-rp]").forEach(function(b){b.onclick=function(){openReplay(L[+b.dataset.rp])}});
 }
 function openReplay(x){
@@ -1470,27 +1794,32 @@ function openReplay(x){
   var i=turns.length>1?1:0;
   function show(){
     var tn=turns[i];
-    $("dlgbody").innerHTML="<h3 style='margin:0 0 6px'>📜 "+esc(x.kind)+"戦　"+esc(x.res||"")+"</h3><div class='row' style='margin-bottom:6px'><button class='btn sm sub' id='rpP'>← 前</button><b id='rpN'>"+esc(tn.n)+"（"+(i+1)+"/"+turns.length+"）</b><button class='btn sm sub' id='rpX'>次 →</button></div><div class='fulllog' style='max-height:50vh;overflow:auto'>"+tn.ls.map(esc).join("<br>")+"</div><div class='row' style='margin-top:8px'><button class='btn sm sub' id='rpB'>一覧にもどる</button><button class='btn sm sub' id='rpR'>この対戦を報告</button></div>";
+    $("dlgbody").innerHTML="<h3 style='margin:0 0 6px'>📜 "+esc(x.kind)+"戦　"+esc(x.res||"")+"</h3><div class='row' style='margin-bottom:6px'><button class='btn sm sub' id='rpP'>← 前</button><b id='rpN'>"+esc(tn.n)+"（"+(i+1)+"/"+turns.length+"）</b><button class='btn sm sub' id='rpX'>次 →</button></div><div class='fulllog' style='max-height:50vh;overflow:auto'>"+tn.ls.map(esc).join("<br>")+"</div><div class='row' style='margin-top:8px'><button class='btn sm sub' id='rpB'>一覧にもどる</button><button class='btn sm sub' id='rpS'>📤 コードで共有</button>"+(x.shared?"":"<button class='btn sm sub' id='rpR'>この対戦を報告</button>")+"</div>";
     $("rpP").onclick=function(){if(i>0){i--;show()}};$("rpX").onclick=function(){if(i<turns.length-1){i++;show()}};
     $("rpB").onclick=openReplayList;
-    $("rpR").onclick=function(){openFeedback("");setTimeout(function(){var t=$("fbText");if(t)t.value="（対戦ログ："+turns[i].n+"）\n"},50)};
+    $("rpS").onclick=function(){shareReplay(x)};
+    if($("rpR"))$("rpR").onclick=function(){openFeedback("");setTimeout(function(){var t=$("fbText");if(t)t.value="（対戦ログ："+turns[i].n+"）\n"},50)};
   }
   show();
 }
 function finishBattle(game,r){
+  tmrStop();var oppN=B.online?B.oppName:null;
   if(B.online)specAnnounce("");
   var me=B.me||0,online=B.online,won=r.win===me&&r.win!=null,taken=6-game.players[me].prizes.length,lost=6-game.players[1-me].prizes.length,turns=game.players[me].turnsTaken;
-  var eligible=!online||online.isRandom||online.isRank,total=0,lines=[];
+  var cheat=!online&&B.cu&&B.cu.used,eligible=(!online||online.isRandom||online.isRank)&&!cheat,total=0,lines=[];
   if(eligible&&!B.remoteEnd){
     lines.push(["対戦したごほうび",30]);if(won)lines.push(["勝利",120]);if(taken>0)lines.push(["サイドを"+taken+"枚とった",taken*25]);
     if(won){if(turns<=7)lines.push(["スピード勝ち（7ターン以内）",60]);else if(turns<=10)lines.push(["はやい勝ち（10ターン以内）",30]);if(lost===0)lines.push(["1匹もやられずに勝利",50])}
     lines.forEach(function(l){total+=l[1]});S.yen+=total;save();renderYen();
   }
-  dailyAdd('battle',1);if(won)dailyAdd('win',1);if(online&&!B.remoteEnd)dailyAdd('online',1);
+  if(!cheat){dailyAdd('battle',1);if(won)dailyAdd('win',1);if(online&&!B.remoteEnd)dailyAdd('online',1);statBattle(!!won,!!(online&&!B.remoteEnd))}
   var who=online?"相手":"CPU";
   var text=B.remoteEnd?onlineEndText(B.remoteEnd):(r.draw?"引き分け":won?"あなたの勝ち！（"+game.turnNumber+"ターン）":"あなたの負け…（"+game.turnNumber+"ターン）");
+  if(cheat)text+="　（「戻す」を使ったので、ごほうび・ミッション・統計には数えません）";
+  if(oppN&&oppN!=="あなた"&&oppN!=="相手"&&!B.remoteEnd)h2hAdd(oppN,r.draw?"d":won?"w":"l");
+  var h2=(oppN&&oppN!=="あなた"&&oppN!=="相手")?h2hText(oppN):"";if(h2&&!B.remoteEnd)text+="　（"+oppN+"さんとの戦績 "+h2+"）";
   B.reward=total?{lines:lines,total:total}:null;B.result={win:won,text:text};replaySave(game,r,text);
-  B.running=false;B.pending=null;B.online=null;B.os=null;B.remoteEnd=null;B.waiting=false;draw();
+  B.running=false;B.pending=null;B.online=null;B.os=null;B.remoteEnd=null;B.waiting=false;B.cu=null;draw();
 }
 var _drawQ=false,_PD=false,_pendDraw=false;
 // 指を置いている間は画面を作り直さない（作り直すと、押したつもりのボタンが別のボタンに入れ替わってしまう）
@@ -1806,7 +2135,11 @@ function renderBattleScreen(){
   var qb=document.createElement("button");qb.className="lnkbtn red";qb.textContent=B.spec?"観戦をやめる":"やめる";qb.onclick=forfeit;
   var lb=document.createElement("button");lb.className="lnkbtn";lb.textContent="ログ";lb.onclick=function(){
     var bx=document.createElement("div");bx.className="zoom logbox";bx.innerHTML="<div class='ztext'><b>ログ</b><div class='fulllog'>"+B.log.slice(-200).map(esc).join("<br>")+"</div></div>";openOvl(bx);var f=bx.querySelector(".fulllog");f.scrollTop=f.scrollHeight};
-  var fbb=document.createElement("button");fbb.className="lnkbtn";fbb.textContent="報告";fbb.onclick=function(){openFeedback("")};ctl.appendChild(qb);ctl.appendChild(lb);ctl.appendChild(fbb);var fxb=document.createElement("button");fxb.className="lnkbtn";fxb.textContent="演出"+(UI.fx?"●":"○");fxb.onclick=function(){UI.fx=!UI.fx;lsSet("pk_fx",UI.fx?"1":"0");fxb.textContent="演出"+(UI.fx?"●":"○")};ctl.appendChild(fxb);strip.appendChild(ctl);
+  var fbb=document.createElement("button");fbb.className="lnkbtn";fbb.textContent="報告";fbb.onclick=function(){openFeedback("")};ctl.appendChild(qb);ctl.appendChild(lb);ctl.appendChild(fbb);var fxb=document.createElement("button");fxb.className="lnkbtn";fxb.textContent="演出"+(UI.fx?"●":"○");fxb.onclick=function(){UI.fx=!UI.fx;lsSet("pk_fx",UI.fx?"1":"0");fxb.textContent="演出"+(UI.fx?"●":"○")};ctl.appendChild(fxb);
+  if(B.cu&&!B.online&&!B.spec&&B.pending&&B.pending.type==="action"){var ub=document.createElement("button");ub.className="lnkbtn";ub.textContent="↩ 戻す("+B.cu.undos+")";ub.disabled=B.cu.undos<=0;ub.onclick=undoMove;ctl.appendChild(ub)}
+  if(B.spec&&B.spec.ws)ctl.appendChild(stampBar(function(k){try{B.spec.ws.send(JSON.stringify({t:"stamp",k:k,name:myName()||"観戦"}))}catch(e){}}));
+  else if(B.online&&B.online.rawSend)ctl.appendChild(stampBar(function(k){B.online.rawSend({t:"stamp",k:k,name:myName()||"相手"})}));
+  strip.appendChild(ctl);
   var hb=document.createElement("button");hb.className="mbtn handbtn";hb.textContent=(UI.handOpen?"手札を隠す":"手札を出す")+"（"+me.hand.length+"）";hb.onclick=function(){UI.handOpen=!UI.handOpen;draw()};strip.appendChild(hb);
   var tinfo=document.createElement("span");tinfo.className="muted";tinfo.style.fontSize=".7rem";tinfo.textContent="ターン"+g.turnNumber+"・"+(B.spec?B.spec.names[g.currentPlayer]+"の番":(myTurn?"あなたの番":"相手の番"));strip.appendChild(tinfo);
   if(g.stadiumCard){var chip=document.createElement("button");chip.className="chip";chip.innerHTML="🏟 "+esc(g.stadiumCard.name)+" <span class='muted'>"+(g.stadiumOwner===SEAT?"（自分）":"（相手）")+"</span> <span class='lnk'>ⓘ 効果を見る</span>";chip.onclick=function(){cardDetail(g.stadiumCard)};strip.appendChild(chip)}
@@ -2182,7 +2515,7 @@ function frFriendsView(box){
   if(!FR.friends.length)box.insertAdjacentHTML("beforeend","<p class='muted'>まだフレンドがいません。全体チャットで名前を押すと、申請を送れます</p>");
   FR.friends.forEach(function(f){
     var r=document.createElement("div");r.className="frow";
-    r.innerHTML="<span class='dot "+(f.online?"on":"")+"'></span><b>"+esc(f.name)+"</b>"+(frUnread(f)?" <span class='badge'>新着</span>":"")+"<span style='flex:1'></span>";
+    r.innerHTML="<span class='dot "+(f.online?"on":"")+"'></span><b>"+esc(f.name)+"</b>"+(h2hText(f.name)?" <span class='muted' style='font-size:.75rem'>戦績 "+esc(h2hText(f.name))+"</span>":"")+(frUnread(f)?" <span class='badge'>新着</span>":"")+"<span style='flex:1'></span>";
     if(f.online&&f.playing){var wb=document.createElement("button");wb.className="btn sm";wb.textContent="👁 観戦（対戦中）";wb.onclick=function(){specStart(f.playing,f.name)};r.insertBefore(wb,r.lastChild)}
     var c=document.createElement("button");c.className="btn sm";c.textContent="チャット";c.onclick=function(){FR.dm=f.code;frSend({t:"history",with:f.code});frMarkRead(f.code);renderFriends()};
     var t=document.createElement("button");t.className="btn sm sub";t.textContent="トレード";t.onclick=function(){frSend({t:"tr_start",to:f.code})};
@@ -2294,6 +2627,7 @@ OnlineSession.prototype.handle=function(text){
     case"rejoined":{this.deadline=0;var ack=m.ack|0;for(var i=ack;i<this.tx.length;i++)this.rawSend(this.tx[i]);this.setStatus(m.peerOnline===false?"相手の接続が切れています…":null);break}
     case"peer":this.setStatus(m.online===false?"相手の接続が切れています…（最大150秒待ちます）":null);break;
     case"msg":{var n=m.n|0;if(n!==this.rx)return;this.rx++;this.push({message:m.d});break}
+    case"stamp":stampShow(m.from,m.k|0);break;
     case"left":this.finish({ended:"opponentLeft"});break;
     case"forfeit":this.finish({ended:"opponentForfeit"});break;
     case"error":if(!this.haveRoom)this.failBefore(m.m||"通信エラー");else this.finish({ended:"failed",m:m.m||"通信エラー"});break;
@@ -2409,8 +2743,8 @@ function onlineBegin(s,mine,opts){
     if(seat!==0){seed=Number(d.seed);if(!isFinite(seed)){abort("相手のデータを読めませんでした");return}seed=seed>>>0}
     B.oppName=String(d.name||"相手").slice(0,12);
     var deck0=PK.DeckList.makeBattleCards(seat===0?mine:pd,0,true),deck1=PK.DeckList.makeBattleCards(seat===0?pd:mine,1000,true);
-    var human={chooseAction:function(g,p,acts){return new Promise(function(res){B.pending={type:"action",actions:acts,res:res};draw()})},
-      choose:function(g,p,req){return new Promise(function(res){B.pending={type:"choice",req:req,res:res};draw()})}};
+    var human={chooseAction:function(g,p,acts){return new Promise(function(res){B.pending={type:"action",actions:acts,res:function(v){tmrStop();res(v)}};tmrStart();draw()})},
+      choose:function(g,p,req){return new Promise(function(res){B.pending={type:"choice",req:req,res:function(v){tmrStop();res(v)}};tmrStart();draw()})}};
     var local={
       chooseAction:async function(g,p,acts){
         if(ri<decs.length){var d=decs[ri++];if(!d||d.k!=="a"||!(d.v>=0&&d.v<acts.length)){s.finish({ended:"failed",m:"復帰できませんでした（記録が合いません）"});if(g.result==null)g.result={draw:true};return acts.length-1}chk();return d.v}
@@ -2496,6 +2830,7 @@ function specOpen(sp){
       sp.fast=sp.q[0].length+sp.q[1].length;
     }else if(m.t==="smsg"){
       var s3=m.s|0;if(s3<0||s3>1||m.n!==sp.cnt[s3])return;sp.cnt[s3]++;if(m.n>0)specPush(sp,s3,m.d);
+    }else if(m.t==="stamp"){stampShow(m.from,m.k|0)
     }else if(m.t==="sended"){specFail(sp,"対戦が終わりました")}
     else if(m.t==="error"){specFail(sp,m.m||"観戦できませんでした")}};
   ws.onclose=function(){clearInterval(sp.ping);if(sp.stop||sp.over||B.spec!==sp)return;
@@ -2509,7 +2844,7 @@ function specBegin(sp,h0,h1){
   if(!d0||!d1||PK.DeckList.validate(d0).length||PK.DeckList.validate(d1).length){bad("デッキを読めませんでした");return}
   var seed=Number(h0.seed)>>>0;if(!isFinite(seed)){bad("対戦のデータを読めませんでした");return}
   sp.names=[String(h0.name||sp.names[0]).slice(0,12),String(h1.name||"相手").slice(0,12)];
-  sp.started=true;
+  sp.started=true;try{statEnsure().spec++;save();achCheck()}catch(e){}
   function mk(seat){return{
     chooseAction:async function(g,p,acts){var m=await specNext(sp,seat);B.waiting=false;
       if(!m||sp.stop||sp.over&&!m){if(g.result==null)g.result={draw:true};return acts.length-1}
@@ -2621,7 +2956,7 @@ function openLoadDialog(){
     }).catch(function(e){$("ldMsg").textContent="読み込めません："+e.message});
   };
 }
-$("svBtn").onclick=openSaveDialog;$("ldBtn").onclick=openLoadDialog;
+$("tuBtn").onclick=function(){openTutorial(false)};$("nwBtn").onclick=openNews;$("acBtn").onclick=openAch;$("stBtn").onclick=openStats;$("hiBtn").onclick=openHistory;$("thBtn").onclick=cycleTheme;$("svBtn").onclick=openSaveDialog;$("ldBtn").onclick=openLoadDialog;
 $("wipeBtn").onclick=function(){
   dialog("<h3 style='margin:0 0 6px'>全てのデータを削除</h3><p>持っているカード・デッキ・所持金・名前・ランクの記録への紐づけなど、この端末に保存されているデータを全部消して、最初の状態に戻します。<b>元に戻せません。</b></p><p class='muted' style='font-size:.8rem'>※ サーバー側のレートやフレンドの記録は消えませんが、この端末との紐づけが切れるため、同じ名前でも続きは使えなくなります。</p><div class='row'><button class='btn sm' id='wipeOk' style='background:#d02020'>全部削除する</button></div>");
   $("wipeOk").onclick=function(){
@@ -2630,7 +2965,7 @@ $("wipeBtn").onclick=function(){
     location.reload();
   };
 };
-renderYen();showTab("pack");dailyBadge();setTimeout(dailyLogin,400);
+renderYen();showTab("pack");dailyBadge();applyTheme();wakeBanner();newsBtn();setTimeout(newsFetch,1200);setTimeout(function(){if(lsGet("pk_tut","")!=="1")openTutorial(true);else dailyLogin()},400);setTimeout(achCheck,1500);
 // はじめての人は、スタートデッキ100を無料で1つ、必ず開ける
 (function(){
   var none=!Object.keys(S.owned).some(function(k){return S.owned[k]>0})&&!S.decks.length;
