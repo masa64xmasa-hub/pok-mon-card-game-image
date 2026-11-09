@@ -299,6 +299,7 @@ body.inbattle .gchg{touch-action:pan-y}
 .wishmark{position:absolute;right:4px;top:22px;font-size:.95rem;line-height:1;pointer-events:none;z-index:3;filter:drop-shadow(0 0 2px #000)}
 .wakebar{position:fixed;left:50%;top:10px;transform:translateX(-50%);background:#1c1c1e;color:#fff;padding:8px 14px;border-radius:20px;font-size:.85rem;z-index:99999;box-shadow:0 2px 10px rgba(0,0,0,.4);max-width:92vw}
 .ach{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:10px;margin:4px 0;background:rgba(128,128,128,.1)}.ach.on{background:var(--mirbg)}.ach b{display:block}
+.setpage{max-width:640px;margin:0 auto}.setgrp{background:var(--panel,rgba(128,128,128,.08));border-radius:14px;padding:10px 12px;margin:10px 0}.setgrp h3{margin:0 0 8px;font-size:.95rem}.setrow{display:flex;gap:8px;flex-wrap:wrap}.setchk{display:flex;gap:8px;align-items:center;margin:8px 0 0;font-size:.9rem;flex-wrap:wrap}
 .favstar{position:absolute;right:4px;top:2px;color:#f5b400;text-shadow:0 0 3px #000,0 0 2px #000;font-size:1.1rem;line-height:1;pointer-events:none;z-index:3}
 .rbadge{position:absolute;left:4px;top:4px;font-weight:800;font-size:.68rem;border-radius:6px;padding:1px 6px;color:#fff;background:#546e7a;box-shadow:0 1px 3px rgba(0,0,0,.4);pointer-events:none}
 .rbadge.r3{background:#2e7d32}.rbadge.r4,.rbadge.r5{background:#1565c0}.rbadge.r6{background:#6a1b9a}.rbadge.r7{background:#e65100}
@@ -318,6 +319,7 @@ body.inbattle .gchg{touch-action:pan-y}
     <button data-tab="deck" aria-selected="false">デッキ</button>
     <button data-tab="battle" aria-selected="false">対戦</button>
     <button data-tab="friend" aria-selected="false">フレンド</button>
+    <button data-tab="set" aria-selected="false">設定</button>
   </nav>
 </header>
 <main id="mainEl">
@@ -327,8 +329,20 @@ body.inbattle .gchg{touch-action:pan-y}
   <section id="t-deck" hidden></section>
   <section id="t-battle" hidden></section>
   <section id="t-friend" hidden></section>
+  <section id="t-set" hidden class="setpage">
+  <h2 style="margin:0 0 4px">⚙ 設定</h2>
+  <div class="setgrp"><h3>ガイド・お知らせ</h3><div class="setrow"><button class="btn sub" id="tuBtn">❓ あそびかた</button><button class="btn sub" id="nwBtn">📢 お知らせ</button></div></div>
+  <div class="setgrp"><h3>記録</h3><div class="setrow"><button class="btn sub" id="acBtn">🏆 実績</button><button class="btn sub" id="stBtn">📊 統計</button><button class="btn sub" id="hiBtn">📖 開封の履歴</button><button class="btn sub" id="rpBtn">📜 対戦の記録</button></div></div>
+  <div class="setgrp"><h3>表示・動作</h3><div class="setrow"><button class="btn sub" id="thBtn">🌓 画面の色</button><button class="btn sub" id="fxSet">✨ カード演出</button></div></div>
+  <div class="setgrp"><h3>通知・オンライン</h3><div class="setrow"><button class="btn sub" id="pushSet">🔔 通知の設定</button></div>
+    <label class="setchk"><input type="checkbox" id="specSet"> フレンドが自分の対戦を観戦できるようにする</label>
+    <label class="setchk">オンライン対戦の持ち時間（1回の操作ごと） <select id="tmrSet"><option value="0">なし</option><option value="60">60秒</option><option value="120">120秒</option><option value="180">180秒</option></select></label></div>
+  <div class="setgrp"><h3>データ</h3><div class="setrow"><button class="btn sub" id="svBtn">💾 セーブ</button><button class="btn sub" id="ldBtn">📂 ロード</button></div><p class="muted" style="margin:4px 0 0;font-size:.8rem">セーブコードは、機種変更やデータの保険に使えます。</p></div>
+  <div class="setgrp"><h3>サポート</h3><div class="setrow"><button class="btn sub" id="fbBtn">🐞 不具合・ご意見を送る</button></div></div>
+  <div style="text-align:center;margin:24px 0 120px"><button id="wipeBtn" style="font:inherit;font-size:.62rem;color:#888;opacity:.3;background:none;border:0;padding:6px 10px;cursor:pointer">データを削除</button></div>
+</section>
 </main>
-<footer style="text-align:center;padding:14px 12px 24px"><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:10px"><button class="btn sub sm" id="tuBtn">❓ あそびかた</button><button class="btn sub sm" id="nwBtn">📢 お知らせ</button><button class="btn sub sm" id="acBtn">🏆 実績</button><button class="btn sub sm" id="stBtn">📊 統計</button><button class="btn sub sm" id="hiBtn">📖 開封の履歴</button><button class="btn sub sm" id="thBtn">🌓 画面の色</button></div><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:10px"><button class="btn sub sm" id="svBtn">💾 セーブ</button><button class="btn sub sm" id="ldBtn">📂 ロード</button></div><button class="btn sub sm" id="fbBtn" style="display:block;margin:0 auto 160px">🐞 不具合・ご意見を送る</button><button id="wipeBtn" style="font:inherit;font-size:.62rem;color:#888;opacity:.3;background:none;border:0;padding:6px 10px;cursor:pointer">データを削除</button></footer>
+
 <dialog id="dlg"><div id="dlgbody"></div><div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn sub sm" id="dlgclose">閉じる</button></div></dialog>
 
 <script src="engine.js"></script>
@@ -423,10 +437,10 @@ function tileFor(name,count,opt){
 function nameOf(key){if(key.indexOf("E:")===0)return "基本"+typeName(key.slice(2))+"エネルギー";return ART[key]?ART[key].name:key}
 
 // ---------- タブ ----------
-var TABS=["pack","col","shop","deck","battle","friend"];
+var TABS=["pack","col","shop","deck","battle","friend","set"];
 function showTab(t){TABS.forEach(function(x){$("t-"+x).hidden=(x!==t)});
-  $("wipeBtn").parentNode.hidden=(t!=="pack");  $("mainEl").classList.remove("wide");document.querySelectorAll("#nav button").forEach(function(b){b.setAttribute("aria-selected",b.dataset.tab===t?"true":"false")});
-  if(t==="pack")renderPack();if(t==="col")renderCol();if(t==="shop")renderShop();if(t==="deck")renderDeck();if(t==="battle")renderBattle();if(t==="friend"){frConnect();renderFriends()}}
+  $("mainEl").classList.remove("wide");document.querySelectorAll("#nav button").forEach(function(b){b.setAttribute("aria-selected",b.dataset.tab===t?"true":"false")});
+  if(t==="pack")renderPack();if(t==="col")renderCol();if(t==="shop")renderShop();if(t==="deck")renderDeck();if(t==="battle")renderBattle();if(t==="friend"){frConnect();renderFriends()}if(t==="set")renderSettings()}
 document.querySelectorAll("#nav button").forEach(function(b){b.onclick=function(){showTab(b.dataset.tab)}});
 function renderYen(){$("yen").textContent="💴 "+S.yen.toLocaleString()+"円"}
 function dialog(html){$("dlgclose").hidden=false;$("dlgbody").innerHTML=html;var d=$("dlg");if(d.showModal)d.showModal();else d.setAttribute("open","")}
@@ -1114,6 +1128,22 @@ function exportDeckImage(d){
     try{url=cv.toDataURL("image/png")}catch(e){cv=draw(false);url=cv.toDataURL("image/png")}
     dialog("<h3 style='margin:0 0 6px'>🖼 デッキの画像</h3><p class='muted' style='margin:0 0 6px'>画像を長押しして「写真に追加」で保存できます。</p><img src='"+url+"' style='width:100%;border-radius:8px'><div class='row' style='margin-top:8px'><a class='btn' id='dkDl' download='"+esc(d.name)+".png' href='"+url+"'>ダウンロード</a></div>");
   });
+}
+
+
+// ---------- 設定タブ ----------
+function renderSettings(){
+  newsBtn();applyTheme();
+  $("fxSet").textContent="✨ カード演出: "+(UI.fx?"ON":"OFF");
+  $("specSet").checked=lsGet("pk_spec","1")!=="0";
+  $("tmrSet").value=String(tmrSec());
+}
+function bindSettings(){
+  $("fxSet").onclick=function(){UI.fx=!UI.fx;lsSet("pk_fx",UI.fx?"1":"0");renderSettings()};
+  $("rpBtn").onclick=openReplayList;
+  $("pushSet").onclick=openPushDialog;
+  $("specSet").onchange=function(){var on=$("specSet").checked;lsSet("pk_spec",on?"1":"0");if(B.online&&B.running)specAnnounce(on?B.online.room:"");if(!on&&FR.status==="online")frSend({t:"playing",room:""})};
+  $("tmrSet").onchange=function(){lsSet("pk_tmr",$("tmrSet").value)};
 }
 
 // ---------- ログインボーナス・デイリーミッション・お気に入り ----------
@@ -2956,7 +2986,7 @@ function openLoadDialog(){
     }).catch(function(e){$("ldMsg").textContent="読み込めません："+e.message});
   };
 }
-$("tuBtn").onclick=function(){openTutorial(false)};$("nwBtn").onclick=openNews;$("acBtn").onclick=openAch;$("stBtn").onclick=openStats;$("hiBtn").onclick=openHistory;$("thBtn").onclick=cycleTheme;$("svBtn").onclick=openSaveDialog;$("ldBtn").onclick=openLoadDialog;
+bindSettings();$("tuBtn").onclick=function(){openTutorial(false)};$("nwBtn").onclick=openNews;$("acBtn").onclick=openAch;$("stBtn").onclick=openStats;$("hiBtn").onclick=openHistory;$("thBtn").onclick=cycleTheme;$("svBtn").onclick=openSaveDialog;$("ldBtn").onclick=openLoadDialog;
 $("wipeBtn").onclick=function(){
   dialog("<h3 style='margin:0 0 6px'>全てのデータを削除</h3><p>持っているカード・デッキ・所持金・名前・ランクの記録への紐づけなど、この端末に保存されているデータを全部消して、最初の状態に戻します。<b>元に戻せません。</b></p><p class='muted' style='font-size:.8rem'>※ サーバー側のレートやフレンドの記録は消えませんが、この端末との紐づけが切れるため、同じ名前でも続きは使えなくなります。</p><div class='row'><button class='btn sm' id='wipeOk' style='background:#d02020'>全部削除する</button></div>");
   $("wipeOk").onclick=function(){
