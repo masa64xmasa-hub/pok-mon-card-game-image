@@ -333,7 +333,7 @@ body.inbattle .gchg{touch-action:pan-y}
   <section id="t-friend" hidden></section>
   <section id="t-set" hidden class="setpage">
   <h2 style="margin:0 0 4px">⚙ 設定</h2>
-  <div class="setgrp"><h3>ガイド・お知らせ</h3><div class="setrow"><button class="btn sub" id="tuBtn">❓ あそびかた</button><button class="btn sub" id="nwBtn">📢 お知らせ</button></div></div>
+  <div class="setgrp"><h3>ガイド・お知らせ</h3><div class="setrow"><button class="btn sub" id="tuBtn">❓ あそびかた</button></div></div>
   <div class="setgrp"><h3>記録</h3><div class="setrow"><button class="btn sub" id="acBtn">🏆 実績</button><button class="btn sub" id="stBtn">📊 統計</button><button class="btn sub" id="hiBtn">📖 開封の履歴</button><button class="btn sub" id="rpBtn">📜 対戦の記録</button></div></div>
   <div class="setgrp"><h3>表示・動作</h3><div class="setrow"><button class="btn sub" id="thBtn">🌓 画面の色</button><button class="btn sub" id="fxSet">✨ カード演出</button></div></div>
   <div class="setgrp"><h3>通知・オンライン</h3><div class="setrow"><button class="btn sub" id="pushSet">🔔 通知の設定</button></div>
@@ -579,6 +579,7 @@ var RAR_SHORT={C:"C",U:"U",R:"R",RR:"RR",AR:"AR",SR_Pokemon:"SR",SR_Goods:"SR",S
 var packSet="SD100",packMode=0,lastPack=null;
 function renderPack(){
   var el=$("t-pack");el.innerHTML="";
+  homeBar(el);
   var sel=document.createElement("div");sel.className="seg";sel.style.marginBottom="14px";
   ["SD100"].concat(SET_ORDER).forEach(function(k){
     var b=document.createElement("button");b.className=(k===packSet?"on":"");b.textContent=k==="SD100"?"スタートデッキ100":SETS[k].name;
@@ -1770,6 +1771,26 @@ var NEWS_SRV=[];
 function newsAll(){var a=NEWS_SRV.map(function(x){return{id:String(x.id),t:x.t,title:x.title,body:x.body}}).concat(NEWS_LOCAL);a.sort(function(x,y){return x.t<y.t?1:x.t>y.t?-1:(x.id<y.id?1:-1)});return a}
 function newsUnread(){var a=newsAll(),seen=lsGet("pk_newsread","");return a.length&&a[0].id!==seen&&a.some(function(x){return seen.indexOf(x.id)<0})}
 function newsBtn(){var b=$("nwBtn");if(b)b.textContent="📢 お知らせ"+(newsUnread()?" ●":"")}
+function giftBtn(){var b=$("gfBtn");if(b){var n=(S.gifts||[]).length;b.textContent="🎁 プレゼント"+(n?"（"+n+"）":"");b.className="btn sm"+(n?"":" sub")}}
+function giftText(g){var a=[];if(g.yen)a.push(g.yen+"円");if(g.tickets)a.push("無料パック券 "+g.tickets+"枚");Object.keys(g.cards||{}).forEach(function(k){a.push((ART[k]?nameOf(k):k)+" ×"+g.cards[k])});return a.join("、")}
+function openGifts(){
+  var list=S.gifts||[],h="<h3 style='margin:0 0 6px'>🎁 プレゼント</h3>";
+  if(!list.length)h+="<p class='muted'>いま受け取れるプレゼントはありません。</p>";
+  list.forEach(function(g,i){h+="<div style='padding:8px 0;border-top:1px solid var(--line)'><b>"+esc(g.title)+"</b> <span class='muted'>"+esc(new Date(g.t+9*3600000).toISOString().slice(0,10))+"</span>"+(g.msg?"<br><span style='white-space:pre-wrap'>"+esc(g.msg)+"</span>":"")+"<br>中身: "+esc(giftText(g))+"<br><button class='btn sm' data-g='"+i+"' style='margin-top:4px'>受け取る</button></div>"});
+  if(list.length>1)h+="<div style='padding-top:8px;border-top:1px solid var(--line)'><button class='btn' id='gfAll'>すべて受け取る</button></div>";
+  dialog(h);
+  Array.prototype.forEach.call($("dlgbody").querySelectorAll("button[data-g]"),function(b){b.onclick=function(){claimGift(list[+b.getAttribute("data-g")].id)}});
+  if($("gfAll"))$("gfAll").onclick=function(){claimGift("all")};
+}
+function claimGift(gid){
+  ecoCall("giftclaim",{gid:gid},{lock:true}).then(function(r){var g=r.gained,a=[];if(g.yen)a.push("+"+g.yen+"円");if(g.tickets)a.push("券 +"+g.tickets);var n=Object.keys(g.cards||{}).length;if(n)a.push("カード "+n+"種");toast("🎁 受け取りました（"+a.join("・")+"）");save();renderYen();giftBtn();renderPack();if($("dlg").open){$("dlg").close();if((S.gifts||[]).length)openGifts()}}).catch(ecoErr);
+}
+function homeBar(el){
+  var row=document.createElement("div");row.className="row";row.style.cssText="margin-bottom:10px;gap:8px";
+  var g=document.createElement("button");g.id="gfBtn";g.onclick=openGifts;row.appendChild(g);
+  var n=document.createElement("button");n.id="nwBtn";n.className="btn sm sub";n.onclick=openNews;row.appendChild(n);
+  el.appendChild(row);giftBtn();newsBtn();
+}
 function newsFetch(){try{fetch(httpBase()+"/news",{cache:"no-store"}).then(function(r){return r.json()}).then(function(l){if(Array.isArray(l)){NEWS_SRV=l.slice(0,20);newsBtn()}}).catch(function(){})}catch(e){}}
 function openNews(){
   var a=newsAll(),h="<h3 style='margin:0 0 6px'>📢 お知らせ</h3>";
@@ -2923,6 +2944,7 @@ function ecoMig(){return{yen:S.yen,owned:S.owned,tickets:S.tickets||0,pool:S.poo
 function ecoApply(r){
   S.yen=r.yen;S.owned=r.owned||{};S.tickets=r.tickets||0;S.pool=r.pool||0;S.starter=r.starter?1:0;S.rankClaim=r.rankClaim||{};S.ach=r.ach||{};
   if(r.first)S.firstDone=1;
+  S.gifts=Array.isArray(r.gifts)?r.gifts:[];
   if(r.now)ECO.off=r.now-Date.now();
   var sd=r.daily,d=S.daily;
   if(sd){
@@ -2932,7 +2954,7 @@ function ecoApply(r){
     else sd.m.forEach(function(x){var m=d.m.filter(function(y){return y.id===x.id})[0];if(m)m.got=x.got;else d.m.push({id:x.id,n:0,got:x.got})});
   }
   if(r.cap)ECO.cap=r.cap;
-  save();renderYen();try{dailyBadge()}catch(e){}
+  save();renderYen();try{dailyBadge();giftBtn()}catch(e){}
 }
 function ecoErr(e){
   if(!e||e.silent||e.code==="cancel")return;
@@ -3094,7 +3116,7 @@ function openLoadDialog(){
     }).catch(function(e){$("ldMsg").textContent="読み込めません："+e.message});
   };
 }
-bindSettings();$("tuBtn").onclick=function(){openTutorial(false)};$("nwBtn").onclick=openNews;$("acBtn").onclick=openAch;$("stBtn").onclick=openStats;$("hiBtn").onclick=openHistory;$("thBtn").onclick=cycleTheme;$("svBtn").onclick=openSaveDialog;$("ldBtn").onclick=openLoadDialog;
+bindSettings();$("tuBtn").onclick=function(){openTutorial(false)};$("acBtn").onclick=openAch;$("stBtn").onclick=openStats;$("hiBtn").onclick=openHistory;$("thBtn").onclick=cycleTheme;$("svBtn").onclick=openSaveDialog;$("ldBtn").onclick=openLoadDialog;
 $("wipeBtn").onclick=function(){
   dialog("<h3 style='margin:0 0 6px'>全てのデータを削除</h3><p>持っているカード・デッキ・所持金・名前・ランクの記録への紐づけなど、この端末に保存されているデータを全部消して、最初の状態に戻します。<b>元に戻せません。</b></p><p class='muted' style='font-size:.8rem'>※ サーバー側のレートやフレンドの記録は消えませんが、この端末との紐づけが切れるため、同じ名前でも続きは使えなくなります。お金とカードもサーバー上の口座に紐づいているので、この端末からは使えなくなります（先にセーブしておけば、コードで同じ口座に戻れます）。</p><div class='row'><button class='btn sm' id='wipeOk' style='background:#d02020'>全部削除する</button></div>");
   $("wipeOk").onclick=function(){
