@@ -2353,6 +2353,7 @@ function frHandle(d){
       FR.onlineSeen=nowOn;break}
     case"pushok":FR.pushOn=!!d.on;if(d.prefs)FR.pushPrefs=d.prefs;toast(d.on?"通知の設定を保存しました":"通知をオフにしました");break;
     case"rank":FR.rank=d;rankCacheSave(d.me);if(!$("t-battle").hidden&&!B.running&&!B.os)renderBattle();break;
+    case"notice":if(typeof d.m==="string")dialog("<h3 style='margin:0 0 6px'>📢 運営からのお知らせ</h3><p>"+esc(d.m)+"</p>");break;
     case"gchat":if(d.msg&&!FR.global.some(function(m){return m.n===d.msg.n&&m.code===d.msg.code})){FR.global.push(d.msg);if(FR.global.length>200)FR.global.shift()}break;
     case"dm":{var o=d.with;(FR.dms[o]=FR.dms[o]||[]).push(d.msg);if(d.msg.f!==FR.code){var f=FR.friends.filter(function(x){return x.code===o})[0];if(f)f.lastTs=Math.max(f.lastTs,d.msg.ts);if(!(FR.dm===o&&!document.hidden&&frVisible()))frLocalNotify("dm",frNameOf(o),/^PKD1:/.test(d.msg.x)?"デッキが送られてきました":d.msg.x,"dm-"+o)}if(FR.dm===o)frMarkRead(o);break}
     case"history":FR.dms[d.with]=d.msgs||[];if(FR.dm===d.with)frMarkRead(d.with);break;
