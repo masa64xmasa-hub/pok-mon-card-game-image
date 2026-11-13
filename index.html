@@ -2127,13 +2127,20 @@ function renderBattleScreen(){
   var el=$("t-battle"),g=B.game;el.innerHTML="";
   if(!g)return;
   var H=Math.max(window.innerHeight-(document.body.classList.contains("inbattle")?4:76),window.innerHeight<=480?280:420),W=Math.max(el.clientWidth||window.innerWidth,320);
+  var PH=W<=700&&window.innerHeight>window.innerWidth;   // 縦向きのスマホ: ベンチを2列にして、場のカードを大きくする
   var handH=Math.round(H*0.27),stripH=28;
-  var unit=(H-stripH-8)/5.6,benchRowH=Math.floor(unit*1.3),actRowH=Math.floor(unit*1.5),zoneH=benchRowH+actRowH;
+  var unit=(H-stripH-8)/(PH?7.05:5.6),benchRowH=Math.floor(unit*(PH?0.9:1.3)),actRowH=Math.floor(unit*(PH?1.7:1.5)),zoneH=(PH?2*benchRowH:benchRowH)+actRowH;
   var activeW=Math.floor(Math.max(40,Math.min((actRowH-18)*0.716,(W-24)/7)));
   var zoneIn=zoneH-8;
   var pileW=Math.max(30,Math.min(activeW,Math.floor(((zoneIn-30-34)/2)*0.716)));
   var prizeW=Math.floor(activeW*0.6),zoneW=Math.max(2*prizeW+14,pileW+16),mainW=W;
   var benchW=Math.floor(Math.max(34,Math.min((benchRowH-18)*0.716,(W-2*zoneW-24)/Math.max(5,g.benchMax(g.players[0]),g.benchMax(g.players[1]),g.players[0].bench.length,g.players[1].bench.length)-8)));
+  var slotsMax=Math.max(5,g.benchMax(g.players[0]),g.benchMax(g.players[1]),g.players[0].bench.length,g.players[1].bench.length),cols=Math.ceil(slotsMax/2);
+  if(PH){
+    zoneW=Math.floor(W*0.2);prizeW=Math.floor((zoneW-8)/2);pileW=Math.max(30,Math.min(zoneW-8,Math.floor(((zoneIn-30-34)/2)*0.716)));
+    var cenW=W-2*zoneW-8;activeW=Math.floor(Math.max(44,Math.min((actRowH-18)*0.716,cenW-12)));
+    benchW=Math.floor(Math.max(34,Math.min((benchRowH-10)*0.716,(cenW-8)/cols-6)));
+  }
   var SEAT=B.me||0,me=g.players[SEAT],op=g.players[1-SEAT],myTurn=g.currentPlayer===SEAT;
   if(g.turnNumber!==UI.lastTurn){UI.lastTurn=g.turnNumber;showBanner("ターン"+g.turnNumber+"　"+(B.spec?(B.spec.names[g.currentPlayer]+"の番"):(myTurn?"あなたの番":"相手の番")))}
   var acts=myActs(),canAct=acts.length>0;
@@ -2168,7 +2175,7 @@ function renderBattleScreen(){
     bx.appendChild(gg);openOvl(bx);
   }
   function prizeBox(s){
-    var ch=prizeW0()/0.716,step=Math.max(14,Math.floor((zoneIn-16-ch)/2));
+    var ch=prizeW0()/0.716,step=PH?Math.floor(ch+4):Math.max(14,Math.floor((zoneIn-16-ch)/2));
     var d=document.createElement("div");d.className="prizes";d.style.gridTemplateColumns="repeat(2,"+prizeW0()+"px)";d.style.gridAutoRows=step+"px";d.style.height=(step*2+ch)+"px";
     for(var i=0;i<6;i++){var c=document.createElement("div");c.className=i<s.prizes.length?"pz":"pz gone";c.style.height=ch+"px";d.appendChild(c)}
     var l=document.createElement("span");l.className="pl";l.textContent="🏅 "+s.prizes.length;d.appendChild(l);return d;
@@ -2186,6 +2193,7 @@ function renderBattleScreen(){
   }
   function benchRow(s,isMine){
     var r=document.createElement("div");r.className="brow"+(isMine?" mine":"");r.style.height=benchRowH+"px";
+    if(PH){r.style.display="grid";r.style.gridTemplateColumns="repeat("+cols+","+(benchW+6)+"px)";r.style.gridAutoRows=benchRowH+"px";r.style.justifyContent="center";r.style.justifyItems="center";r.style.height=(2*benchRowH)+"px";r.style.padding="2px 0 0";r.style.gap="0"}
     s.bench.forEach(function(pk,i){
       var t=pokeTile(pk,benchW,isMine);t.dataset.slot="b"+i;
       t.onclick=function(){if(isMine)pokeMenu(pk,{k:"b",i:i});else cardDetail(pk.top)};r.appendChild(t)});
@@ -2205,7 +2213,7 @@ function renderBattleScreen(){
     var cen=document.createElement("div");cen.className="hcen";
     if(isMine){cen.appendChild(activeRow(s,true));cen.appendChild(benchRow(s,true))}
     else{cen.appendChild(benchRow(s,false));cen.appendChild(activeRow(s,false))}
-    var L=document.createElement("div"),R=document.createElement("div");L.className=R.className="hz";L.style.width=R.style.width=zoneW+"px";
+    var L=document.createElement("div"),R=document.createElement("div");L.className=R.className="hz";L.style.width=R.style.width=zoneW+"px";if(PH){L.style.justifyContent=R.style.justifyContent="center";L.style.padding=R.style.padding="0"}
     // 本物のプレイマットと同じ: 自分=左下にサイド・右下に山札(上)とトラッシュ(下) / 相手=右上にサイド・左上にトラッシュ(上)と山札(下)
     if(isMine){L.appendChild(prizeBox(s));R.appendChild(piles(s,title,eb))}
     else{L.appendChild(piles(s,title,null,true));R.appendChild(prizeBox(s))}
