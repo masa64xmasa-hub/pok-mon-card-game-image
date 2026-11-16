@@ -966,7 +966,34 @@
       else if (winners.length === 1) this.result = { win: winners[0] };
     }
 
+    // ベンチの上限が下がった（「ゼロの大空洞」がなくなった・テラスタルのポケモンがいなくなった）とき、
+    // 上限を超えたぶんのベンチポケモンを、そのプレイヤー自身が選んでトラッシュする
+    async enforceBenchLimit() {
+      for (var n = 0; n < 2; n++) {
+        var p = (this.currentPlayer + n) % 2, side = this.players[p], guard = 0;
+        while (side.bench.length > this.benchMax(side) && guard++ < 12) {
+          var over = side.bench.length - this.benchMax(side);
+          var cands = side.bench.map(function (_, i) { return bench(i); });
+          var slot = await this.chooseSlot(p, p, "ベンチが上限を超えています。トラッシュするポケモンを選んでください（あと" + over + "匹）", cands);
+          var idx = slot && slot.k === "b" ? slot.i : side.bench.length - 1;
+          var pk = side.bench[idx];
+          if (!pk) break;
+          side.bench.splice(idx, 1);
+          side.discard.push.apply(side.discard, pk.cards);
+          side.discard.push.apply(side.discard, pk.attachedEnergy);
+          if (pk.tool) side.discard.push(pk.tool);
+          if (pk.extraTool) side.discard.push(pk.extraTool);
+          this.note("プレイヤー" + (p + 1) + "はベンチの上限をこえたので、" + pk.name + "をトラッシュした");
+        }
+      }
+    }
+
     async resolveKnockouts() {
+      await this.resolveKnockoutsCore();
+      if (this.result == null) { this.refreshStadiumEffects(); await this.enforceBenchLimit(); }
+    }
+
+    async resolveKnockoutsCore() {
       this.refreshStadiumEffects();
       if (this.result != null) return;
       var rounds = 0;
