@@ -309,10 +309,14 @@ body.inbattle .gchg{touch-action:pan-y}
 .rbadge.r8{background:linear-gradient(90deg,#f9a825,#e91e63);}
 .hibox{margin:10px 0;padding:10px;border-radius:12px;background:linear-gradient(135deg,rgba(255,193,7,.18),rgba(233,30,99,.12));border:1px solid rgba(255,193,7,.5)}
 .hiT{font-weight:800;margin-bottom:6px}
+.gch.peek{background:transparent;pointer-events:none}.gch.peek>*{display:none!important}.gch.peek>.gchback{display:flex!important;pointer-events:auto}
+.gchback{display:none;position:fixed;left:50%;top:max(8px,env(safe-area-inset-top));transform:translateX(-50%);z-index:960;align-items:center;gap:8px;background:#1c1c1e;color:#fff;border-radius:22px;padding:4px 6px 4px 12px;box-shadow:0 2px 12px rgba(0,0,0,.5);font-size:.8rem;white-space:nowrap;max-width:92vw}
+.gchback .btn{margin:0}
+#chpeek{position:fixed;left:50%;top:max(8px,env(safe-area-inset-top));transform:translateX(-50%);z-index:2147483000;display:flex;align-items:center;gap:8px;background:#1c1c1e;color:#fff;border-radius:22px;padding:4px 6px 4px 12px;box-shadow:0 2px 12px rgba(0,0,0,.5);font-size:.8rem;white-space:nowrap;max-width:92vw}
 /* ===== スマホ向け（幅700px以下、または横向きで高さ480px以下）===== */
 nav button .ic{font-size:1.1rem;line-height:1;vertical-align:middle}
 nav button .tl{margin-left:6px}
-nav button.dot .ic::after{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:#ff3b30;margin-left:1px;vertical-align:top}
+nav button.hasdot .ic::after{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:#ff3b30;margin-left:1px;vertical-align:top}
 .strip{height:auto;min-height:28px;gap:6px;padding:0 8px;flex-wrap:nowrap}
 .strip>*{white-space:nowrap;flex:none}
 .strip .lr{display:flex;gap:2px;align-items:center}
@@ -1221,7 +1225,7 @@ function dailyClaim(i){
     save();renderYen();renderPack();dailyBadge();
   }).catch(ecoErr);
 }
-function dailyBadge(){var b=document.querySelector('#nav button[data-tab="pack"]');if(!b)return;var d=dailyEnsure(),n=0;d.m.forEach(function(m){var df=missionDef(m.id);if(df&&!m.got&&m.n>=df.n)n++});b.classList.toggle("dot",!!n)}
+function dailyBadge(){var b=document.querySelector('#nav button[data-tab="pack"]');if(!b)return;var d=dailyEnsure(),n=0;d.m.forEach(function(m){var df=missionDef(m.id);if(df&&!m.got&&m.n>=df.n)n++});b.classList.toggle("hasdot",!!n)}
 function dailyLogin(){
   var d0=dailyEnsure(),today=jstDay();
   if(d0.last>=today)return;                         // 今日はもう受け取った（サーバーも同じ判定）
@@ -2268,6 +2272,7 @@ function renderBattleScreen(){
   if(stIdx>=0){var sbn=document.createElement("button");sbn.className="mbtn sub";sbn.textContent="スタジアムの効果を使う";sbn.onclick=function(){runAct(stIdx)};strip.appendChild(sbn)}
   var ht=document.createElement("span");ht.className="muted";ht.style.fontSize=".7rem";ht.textContent=(B.pending&&B.pending.type==="choice")?"選んでください":(B.spec?"👁 観戦中（"+B.spec.names[0]+" 対 "+B.spec.names[1]+"）":(canAct?"":(B.waiting?"相手の操作を待っています…":"相手の番です…")));strip.appendChild(ht);
   el.appendChild(root);
+  if(!(B.pending&&B.pending.type==="choice")){var pk0=document.getElementById("chpeek");if(pk0)pk0.remove();B._peek=null}
   if(B.pending&&B.pending.type==="choice")renderChoice(B.pending);else if(document.getElementById("gch")&&!(B.pending&&B.pending.type==="choice")){document.getElementById("gch").remove()}else if($("dlg").open&&B._choiceOpen){$("dlg").close();B._choiceOpen=false}
 }
 function cardTileFor(c){return c.imageName?imgEl(c.imageName):energyTile(c)}
@@ -2286,7 +2291,11 @@ function renderGalleryChoice(pd){
   var ov=document.createElement("div");ov.id="gch";ov.className="gch";ov.__pd=pd;
   var hd=document.createElement("div");hd.className="gchh";
   var ttl=document.createElement("b");ttl.textContent=req.prompt;hd.appendChild(ttl);
-  var cnt=document.createElement("span");cnt.className="gchc";hd.appendChild(cnt);ov.appendChild(hd);
+  var cnt=document.createElement("span");cnt.className="gchc";hd.appendChild(cnt);
+  var pkb=document.createElement("button");pkb.className="btn sm sub";pkb.innerHTML="<span class='tlp'>👁 盤面を見る</span>";pkb.style.whiteSpace="nowrap";pkb.style.flex="none";pkb.title="バトル場・ベンチ・手札・サイド・トラッシュを見る";
+  pkb.onclick=function(){ov.classList.add("peek")};hd.insertBefore(pkb,cnt);ov.appendChild(hd);
+  var bk=document.createElement("div");bk.className="gchback";bk.innerHTML="<span>👁 盤面を見ています</span>";
+  var bkb=document.createElement("button");bkb.className="btn sm";bkb.textContent="選択にもどる";bkb.style.whiteSpace="nowrap";bkb.onclick=function(){ov.classList.remove("peek")};bk.appendChild(bkb);ov.appendChild(bk);
   var grid=document.createElement("div");grid.className="gchg";ov.appendChild(grid);
   var ft=document.createElement("div");ft.className="gchf";ov.appendChild(ft);
   var sel=[];
@@ -2317,6 +2326,7 @@ function renderGalleryChoice(pd){
   document.body.appendChild(ov);refresh();
 }
 function renderChoice(pd){
+  if(B._peek){if(B._peek===pd)return;var o0=document.getElementById("chpeek");if(o0)o0.remove();B._peek=null}
   if(pd.req.gallery||pd.req.multi){var dd=$("dlg");if(dd.open){dd.close();B._choiceOpen=false}renderGalleryChoice(pd);return}
   var req=pd.req,h="<h3 style='margin:0 0 8px'>"+esc(req.prompt)+"</h3><div id='ch' class='row' style='flex-direction:column;align-items:stretch'></div>";
   $("dlgbody").innerHTML=h;var box=$("dlgbody").querySelector("#ch");
@@ -2329,7 +2339,17 @@ function renderChoice(pd){
   }else req.options.forEach(function(o,i){var b=document.createElement("button");b.className="btn sm sub";b.style.textAlign="left";b.textContent=o;b.onclick=function(){done(i)};box.appendChild(b)});
   if(req.allowsNone){var n=document.createElement("button");n.className="btn sm";n.textContent="選ばない";n.onclick=function(){done(null)};box.appendChild(n)}
   var d=$("dlg");d.oncancel=function(ev){ev.preventDefault()};$("dlgclose").hidden=true;
+  if(B.game&&(req.kind==="card"||req.kind==="target"||req.gallery)){
+    var pb=document.createElement("button");pb.className="btn sm sub";pb.innerHTML="👁 盤面を見る";
+    pb.onclick=function(){d.close();B._choiceOpen=false;peekBoard(pd)};box.appendChild(pb)}
   if(!d.open){B._choiceOpen=true;if(d.showModal)d.showModal();else d.setAttribute("open","")}
+}
+// ダイアログ式の選択中に盤面を見る（見終わったら選択にもどる）
+function peekBoard(pd){
+  B._peek=pd;
+  var bar=document.createElement("div");bar.id="chpeek";bar.innerHTML="<span>👁 盤面を見ています</span>";
+  var bb=document.createElement("button");bb.className="btn sm";bb.textContent="選択にもどる";bb.style.whiteSpace="nowrap";
+  bb.onclick=function(){bar.remove();B._peek=null;if(B.pending===pd)renderChoice(pd)};bar.appendChild(bb);document.body.appendChild(bar);
 }
 function energyTile(c){return energyEl(c.energyType,true)}
 function forfeit(){
