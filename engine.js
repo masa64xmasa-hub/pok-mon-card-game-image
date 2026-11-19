@@ -6444,7 +6444,8 @@
       for (const e of trainer.effects) {
         if (e.c === "grassPokemonCanEvolveOnPlacedTurn") allowed = true;
       }
-      return allowed && pk.cards.length === 1 && pk.data.type === "grass" && evolveCard.type === "grass";
+      // 進化したばかりの草ポケモン（1進化）を、同じ番にさらに草ポケモン（2進化）へ進化させることもできる（公式の裁定）
+      return allowed && pk.data.type === "grass" && evolveCard.type === "grass";
     },
 
     /** インテレオン「しとめる」 */
