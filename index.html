@@ -1665,7 +1665,12 @@ function renderBattleSetup(el){
   var dl=currentDeckList(),probs=dl?PK.DeckList.validate(dl):["「いま使うデッキ」がありません。パックを開けるか、ショップでデッキをもらってください。"];
   var h="<div class='panel'><h2 style='margin:0 0 6px'>対戦（あなた vs CPU）</h2>";
   if(B.result)h+="<p class='"+(B.result.win?"okc":"warn")+"' style='font-size:1.05rem'>"+esc(B.result.text)+"</p>"+(B.reward?(B.reward.wait?"<p class='muted'>ごほうび: サーバーに送っています…</p>":B.reward.off?"<p class='muted'>ごほうび: サーバーにつながらなかったので、つながったときに受け取ります</p>":"<p>ごほうび: "+B.reward.lines.map(function(l){return esc(l[0])+" +"+l[1]}).join("／")+"　合計 <b>+"+B.reward.give+"円</b>"+(B.reward.capped?"　<span class='muted'>（1日の上限があるため、"+B.reward.total+"円のうち"+B.reward.give+"円）</span>":"")+"</p>"):"");
-  h+="<p>あなたのデッキ: <b>"+(dl?esc(S.decks[S.current].name):"なし")+"</b></p>";
+  if(S.decks.length){
+    h+="<div class='row' style='margin:6px 0'><label>あなたのデッキ <select id='b-deck'>";
+    S.decks.forEach(function(d,i){var bad=PK.DeckList.validate(deckListFor(d)||{cards:[],energy:[],arts:{}}).length>0;
+      h+="<option value='"+i+"'"+(i===S.current?" selected":"")+">"+esc(d.name||("デッキ"+(i+1)))+(bad?"（ルールに合っていません）":"")+"</option>"});
+    h+="</select></label></div>";
+  }else h+="<p>あなたのデッキ: <b>なし</b></p>";
   if(probs.length)h+="<p class='warn'>"+probs.map(esc).join("<br>")+"</p>";
   h+="<div class='row' style='margin:8px 0'><label>相手のデッキ <select id='b-opp'><option value='fighting'>闘デッキ（メガルカリオex）</option><option value='darkness'>悪デッキ（メガアブソルex）</option><option value='random'>ランダムなCPUデッキ</option></select></label>";
   h+="<label>CPUの強さ <select id='b-cpu'><option value='strong'>つよい</option><option value='simple'>ふつう</option><option value='weak'>よわい（ときどきミスをする）</option></select></label></div>";
@@ -1680,6 +1685,7 @@ function renderBattleSetup(el){
   h+="<div class='row' style='margin:8px 0'><label>持ち時間（1回の操作ごと） <select id='o-tmr'><option value='0'>なし</option><option value='60'>60秒</option><option value='120'>120秒</option><option value='180'>180秒</option></select></label><span class='muted' style='font-size:.8rem'>時間切れになると、自動で進みます</span></div>";
   h+="<details style='margin-top:10px'><summary class='muted'>サーバーの設定</summary><div class='row' style='margin-top:6px'><input type='text' id='o-srv' style='flex:1' value='"+esc(serverBase())+"'><button class='btn sm sub' id='o-srvset'>保存</button></div></details></div>";
   el.innerHTML=h;$("b-opp").value=B.cfg.opp;$("b-cpu").value=B.cfg.cpu;
+  if($("b-deck"))$("b-deck").onchange=function(){S.current=+$("b-deck").value;save();renderBattle()};
   $("b-rep").onclick=openReplayList;$("o-tmr").value=String(tmrSec());$("o-tmr").onchange=function(){lsSet("pk_tmr",$("o-tmr").value)};
   $("b-start").onclick=function(){B.cfg.opp=$("b-opp").value;B.cfg.cpu=$("b-cpu").value;startBattle()};
   if($("o-ranked"))$("o-ranked").onclick=function(){onlineStart("ranked")};
