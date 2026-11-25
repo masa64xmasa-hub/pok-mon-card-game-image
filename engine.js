@@ -8388,22 +8388,26 @@
     },
 
     /// 相手のポケモンについているエネルギーを1個選ぶ（グッズの効果を受けないポケモンはのぞく）。返すのは持ち主側のポケモンとカード（{pk, card} または null）
-    async chooseOpponentEnergy(p, t) {
+    /// basicOnly=true のときは、基本エネルギーだけを対象にする（クラッシュハンマーなど）
+    async chooseOpponentEnergy(p, t, basicOnly) {
       const opp = this.other(p);
+      const isTarget = (c) => !basicOnly || (c.energyType != null && !c.isSpecialEnergy);
       const cands = [];
       for (const slot of this.slots(opp)) {
         const pk = this.pokemon(opp, slot);
-        if (pk != null && pk.attachedEnergy.length > 0 && !this.shieldedByTrainer(pk, t)) cands.push(slot);
+        if (pk != null && pk.attachedEnergy.some(isTarget) && !this.shieldedByTrainer(pk, t)) cands.push(slot);
       }
       const slot = await this.chooseSlot(p, opp, "エネルギーを選ぶ相手のポケモンを選んでください", cands);
       if (slot == null) return null;
       const pk = this.pokemon(opp, slot);
       if (pk == null || pk.attachedEnergy.length === 0) return null;
+      const targets = pk.attachedEnergy.filter(isTarget);
+      if (targets.length === 0) return null;
       const labels = [];
-      for (const c of pk.attachedEnergy) labels.push(c.name);
+      for (const c of targets) labels.push(c.name);
       let i = await this.ask(p, "card", `${pk.name}についているエネルギーを選んでください`, labels);
       if (i == null) i = 0;
-      return { pk: pk, card: pk.attachedEnergy[clampIdx(i, pk.attachedEnergy.length)] };
+      return { pk: pk, card: targets[clampIdx(i, targets.length)] };
     },
 
     // MARK: - 使えるかどうか（第11弾ぶん）
@@ -8441,6 +8445,8 @@
             break;
           }
           case "flipCoinHeadsDiscardOpponentEnergy":
+            if (!opp.allPokemon.some((pk) => pk.attachedEnergy.some((c) => c.energyType != null && !c.isSpecialEnergy) && !this.shieldedByTrainer(pk, t))) return false;
+            break;
           case "returnOpponentEnergyToHand":
             if (!opp.allPokemon.some((pk) => pk.attachedEnergy.length > 0 && !this.shieldedByTrainer(pk, t))) return false;
             break;
@@ -8661,7 +8667,7 @@
         }
         case "flipCoinHeadsDiscardOpponentEnergy": {
           if (this.flipCoin()) {
-            const r = await this.chooseOpponentEnergy(p, t);
+            const r = await this.chooseOpponentEnergy(p, t, true);
             if (r != null) {
               const { pk, card } = r;
               this.removeCard(pk.attachedEnergy, card.id);
